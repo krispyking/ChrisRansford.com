@@ -68,6 +68,16 @@
   .carrier-uo{background:#dc2f6e;color:#fff}
   .carrier-ow{background:#7b5ea7;color:#fff}
   .carrier-other{background:#37474f;color:#b0bec5}
+  .live-badge{font-size:0.62rem;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:auto;white-space:nowrap}
+  .live-ontime{background:#1b5e20;color:#69f0ae}
+  .live-active{background:#01579b;color:#4fc3f7}
+  .live-landed{background:#1b5e20;color:#a5d6a7}
+  .live-minor{background:#e65100;color:#ffcc80}
+  .live-delayed{background:#b71c1c;color:#ef9a9a}
+  .live-cancelled{background:#b71c1c;color:#fff}
+  .live-indicator{font-size:0.78rem;color:#4fc3f7;display:flex;align-items:center;gap:6px}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:#4fc3f7;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
   .flight-row .times{color:#e8eaf6;font-weight:500}
   .flight-row .freq{color:#b0bec5;font-size:0.78rem}
   @media(max-width:900px){
@@ -158,6 +168,7 @@
   <svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#004080"/><text x="20" y="27" text-anchor="middle" font-size="20" fill="#00b4d8">✈</text></svg>
   <h1>KrispyKing ✈ Cathay Travel Planner</h1>
   <span>HKG Departures</span>
+  <div class="live-indicator"><span class="live-dot"></span><span id="liveCount">Connecting to AirLabs…</span></div>
 </header>
 
 <div class="container">
@@ -552,6 +563,66 @@ const DESTINATIONS = [
 ];
 
 const OWM_KEY = "712270799a8b7d594508656a8cdeeab7";
+const AIRLABS_KEY = "87e415c0-508e-43ff-9dea-b329193fc411";
+let liveFlightCache = {};
+let liveLastFetch = 0;
+
+async function fetchLiveFlights() {
+  if (Date.now() - liveLastFetch < 1800000 && Object.keys(liveFlightCache).length > 0) return;
+  try {
+    const [depRes, arrRes] = await Promise.all([
+      fetch(`https://airlabs.co/api/v9/schedules?dep_iata=HKG&airline_iata=CX&api_key=${AIRLABS_KEY}&_fields=flight_iata,dep_iata,arr_iata,status,dep_delayed,arr_delayed,dep_estimated,arr_estimated,dep_gate,dep_terminal,arr_terminal,duration`),
+      fetch(`https://airlabs.co/api/v9/schedules?arr_iata=HKG&airline_iata=CX&api_key=${AIRLABS_KEY}&_fields=flight_iata,dep_iata,arr_iata,status,dep_delayed,arr_delayed,dep_estimated,arr_estimated,dep_gate,dep_terminal,arr_terminal,duration`)
+    ]);
+    const depData = await depRes.json();
+    const arrData = await arrRes.json();
+    liveFlightCache = {};
+    [...(depData.response||[]), ...(arrData.response||[])].forEach(f => {
+      if (f.flight_iata) liveFlightCache[f.flight_iata] = f;
+    });
+    liveLastFetch = Date.now();
+    applyLiveBadges();
+    updateLiveCounter();
+  } catch(e) { console.log('AirLabs fetch error:', e); }
+}
+
+function getLiveStatus(flightIata) {
+  const f = liveFlightCache[flightIata];
+  if (!f) return null;
+  const delay = f.dep_delayed || f.arr_delayed || 0;
+  let badge = '', cls = '';
+  if (f.status === 'cancelled') { badge = '❌ CANCELLED'; cls = 'live-cancelled'; }
+  else if (f.status === 'active' || f.status === 'en-route') { badge = '🛫 IN FLIGHT'; cls = 'live-active'; }
+  else if (f.status === 'landed') { badge = '✅ LANDED'; cls = 'live-landed'; }
+  else if (delay > 30) { badge = `⚠️ DELAYED ${delay}min`; cls = 'live-delayed'; }
+  else if (delay > 0) { badge = `🟡 +${delay}min`; cls = 'live-minor'; }
+  else if (f.status === 'scheduled') { badge = '🟢 ON TIME'; cls = 'live-ontime'; }
+  return {badge, cls, delay, gate: f.dep_gate, terminal: f.dep_terminal, status: f.status};
+}
+
+function applyLiveBadges() {
+  document.querySelectorAll('.flight-row .fn').forEach(el => {
+    const fnText = el.textContent.trim().match(/CX\d+/);
+    if (!fnText) return;
+    const existing = el.parentElement.querySelector('.live-badge');
+    if (existing) existing.remove();
+    const live = getLiveStatus(fnText[0]);
+    if (live) {
+      const span = document.createElement('span');
+      span.className = `live-badge ${live.cls}`;
+      span.textContent = live.badge;
+      if (live.gate) span.title = `Gate ${live.gate}`;
+      el.parentElement.appendChild(span);
+    }
+  });
+}
+
+function updateLiveCounter() {
+  const count = Object.keys(liveFlightCache).length;
+  const el = document.getElementById('liveCount');
+  if (el) el.textContent = count > 0 ? `📡 ${count} live flights tracked` : '';
+}
+
 const DAYS = ["","Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const DAY_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -1261,6 +1332,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const initDow = getSelectedDOW();
   DESTINATIONS.forEach(d => { if (flightsForDay(d.outbound, initDow).length > 0) prevActiveSet.add(d.iata); });
   updateMap();
+  fetchLiveFlights();
+  setInterval(fetchLiveFlights, 1800000);
 
   document.getElementById('prevWeek').addEventListener('click', () => {
     sliderStartDate.setDate(sliderStartDate.getDate() - 7);
