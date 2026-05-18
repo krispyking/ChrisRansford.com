@@ -575,6 +575,14 @@ const BUS_TO_AIRPORT_MIN = 40;
 const AIRPORT_BEFORE_MIN = 80; // 1h20m before takeoff
 const WALK_TO_BUS_MIN = 5;
 
+function calcSunRain(items) {
+  if (!items.length) return {sunH:0, rainH:0, rainPct:0, totalH:0};
+  const totalH = items.length * 3;
+  const sunSlots = items.filter(i => ['Clear','Clouds'].includes(i.weather[0].main) && (i.clouds?.all||0) < 50);
+  const rainSlots = items.filter(i => ['Rain','Drizzle','Thunderstorm'].includes(i.weather[0].main));
+  return {sunH: sunSlots.length * 3, rainH: rainSlots.length * 3, rainPct: Math.round((rainSlots.length/items.length)*100), totalH};
+}
+
 function wxEmoji(iconCode) {
   const c = iconCode.replace('n','d');
   const map = {'01d':'☀️','02d':'🌤️','03d':'⛅','04d':'☁️','09d':'🌧️','10d':'🌦️','11d':'⛈️','13d':'❄️','50d':'🌫️'};
@@ -592,12 +600,11 @@ function getWeatherRanking() {
     const items = getWeatherForDate(data, dateKey);
     if (items.length === 0) return;
     const wx = classifyWeather(items);
-    let score = wx.hi;
+    const sr = calcSunRain(items);
+    let score = sr.sunH * 5 + wx.hi;
     if (wx.severe) score -= 50;
-    else if (!wx.hasRain && wx.emoji === '☀️') score += 20;
-    else if (!wx.hasRain) score += 8;
-    else score -= 12;
-    scored.push({dest, wx, score});
+    if (sr.rainH > 0) score -= sr.rainH * 3;
+    scored.push({dest, wx, sr, score});
   });
   return scored.sort((a,b) => b.score - a.score);
 }
@@ -750,18 +757,18 @@ function updateWeatherPick() {
     if (items.length === 0) return;
     const wx = classifyWeather(items);
     if (wx.severe) return;
-    let score = wx.hi;
-    if (!wx.hasRain && wx.emoji === '☀️') score += 15;
-    else if (!wx.hasRain) score += 5;
-    else score -= 10;
-    if (score > bestScore) { bestScore = score; best = {dest, wx}; }
+    const sr = calcSunRain(items);
+    let score = sr.sunH * 5 + wx.hi;
+    if (wx.severe) return;
+    if (sr.rainH > 0) score -= sr.rainH * 3;
+    if (score > bestScore) { bestScore = score; best = {dest, wx, sr}; }
   });
   const box = document.getElementById('weatherPick');
   if (!best) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   const f = best.dest.outbound.find(f => f.days.includes(dow));
   document.getElementById('weatherPickBody').textContent =
-    `${best.wx.emoji} Fly to ${best.dest.name} (${best.dest.iata}) — ${best.wx.hi}°C, ${best.wx.desc}`;
+    `${best.wx.emoji} Fly to ${best.dest.name} (${best.dest.iata}) — ${best.wx.hi}°C, ☀️ ${best.sr.sunH}h sunshine${best.sr.rainH > 0 ? `, 🌧️ ${best.sr.rainH}h rain` : ', no rain ✓'}`;
   const lh = calcLeaveHome(f.dep);
   document.getElementById('weatherPickSub').textContent =
     `${f.fn} departing ${f.dep} · Leave home ${lh.leaveHome} · ${best.dest.attractions?.[0] || ''}`;
@@ -808,12 +815,21 @@ function renderForecast(el, data) {
   let selHTML = '';
   if (selItems.length > 0) {
     const midItem = selItems[Math.floor(selItems.length/2)];
+    const sr = calcSunRain(selItems);
+    const sunBar = Math.round((sr.sunH / Math.max(sr.totalH,1)) * 100);
+    const rainBar = Math.round((sr.rainH / Math.max(sr.totalH,1)) * 100);
     selHTML = `
       <div class="wx-selected-day">
         <span style="font-size:2.2rem;filter:brightness(1.3)">${wxEmoji(midItem.weather[0].icon)}</span>
-        <div class="wx-sel-info">
+        <div class="wx-sel-info" style="flex:1">
           <div class="wx-sel-temp">${selWx.lo}–${selWx.hi}°C ${selWx.emoji}</div>
-          <div class="wx-sel-desc">${selWx.desc}${selWx.hasRain ? ' · Pack umbrella' : ''}${selWx.severe ? ' · ⚠️ AVOID' : ''}</div>
+          <div class="wx-sel-desc">${selWx.desc}${selWx.severe ? ' · ⚠️ AVOID' : ''}</div>
+          <div style="display:flex;gap:12px;margin-top:5px;align-items:center">
+            <div style="display:flex;align-items:center;gap:4px"><span style="font-size:1.1rem">☀️</span><strong style="color:#ffd600;font-size:0.9rem">${sr.sunH}h sun</strong></div>
+            <div style="flex:1;height:6px;background:#1a2a3a;border-radius:3px;overflow:hidden"><div style="height:100%;width:${sunBar}%;background:linear-gradient(90deg,#ffd600,#ffab00);border-radius:3px"></div></div>
+            ${sr.rainH > 0 ? `<div style="display:flex;align-items:center;gap:4px"><span style="font-size:1.1rem">🌧️</span><span style="color:#42a5f5;font-size:0.8rem;font-weight:600">${sr.rainH}h (${sr.rainPct}%)</span></div>
+            <div style="flex:0.5;height:6px;background:#1a2a3a;border-radius:3px;overflow:hidden"><div style="height:100%;width:${rainBar}%;background:#42a5f5;border-radius:3px"></div></div>` : '<span style="color:#00e676;font-size:0.75rem;font-weight:600">No rain ✓</span>'}
+          </div>
         </div>
       </div>`;
   }
@@ -829,12 +845,14 @@ function renderForecast(el, data) {
     const lo = Math.round(item.main.temp_min);
     const icon = item.weather[0].icon;
     const isSel = key === selKey;
+    const daySR = calcSunRain(getWeatherForDate(data, key));
     forecastHTML += `
       <div class="wx-day${isSel ? ' wx-day-active' : ''}">
         <div class="wx-d">${dayName} ${dateNum}</div>
         <span class="wx-emoji">${wxEmoji(icon)}</span>
         <div class="wx-t">${hi}°</div>
-        <div class="wx-lo">${lo}°</div>
+        <div style="font-size:0.6rem;color:${daySR.sunH >= 9 ? '#ffd600' : daySR.sunH >= 6 ? '#ffab00' : '#78909c'};font-weight:700">☀${daySR.sunH}h</div>
+        ${daySR.rainH > 0 ? `<div style="font-size:0.55rem;color:#42a5f5">🌧${daySR.rainH}h</div>` : ''}
       </div>`;
   });
   forecastHTML += '</div>';
@@ -905,6 +923,8 @@ function renderWeatherTop5() {
         <span class="wx-rank-name">${r.dest.name}</span>
         <span style="font-size:1rem">${r.wx.emoji}</span>
         <span class="wx-rank-temp">${r.wx.hi}°C</span>
+        <span style="color:#ffd600;font-size:0.72rem;font-weight:700">☀${r.sr.sunH}h</span>
+        ${r.sr.rainH > 0 ? `<span style="color:#42a5f5;font-size:0.68rem">🌧${r.sr.rainH}h</span>` : ''}
       </div>`).join('')}
     </div>`;
 }
