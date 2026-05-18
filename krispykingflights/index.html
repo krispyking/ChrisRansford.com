@@ -112,11 +112,20 @@
   .dur-label{font-size:0.72rem;color:#b0bec5;white-space:nowrap}
   .flight-block{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #1a3a5c}
   .flight-block:last-of-type{border-bottom:none;margin-bottom:0;padding-bottom:0}
-  .leave-home-row{display:flex;align-items:center;gap:8px;font-size:0.75rem;color:#90caf9;padding:4px 8px;background:#162032;border-radius:6px;margin-top:4px;flex-wrap:wrap}
-  .leave-home-row.tight{background:#3e1a1a;color:#ff8a80}
-  .lh-icon{font-size:0.85rem}
-  .lh-time{font-weight:700;color:#00e676;font-size:0.8rem}
-  .leave-home-row.tight .lh-time{color:#ff5252}
+  .journey-timeline{display:flex;align-items:center;margin-top:6px;padding:6px 0;position:relative;gap:0}
+  .jt-step{display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
+  .jt-icon{font-size:1rem;line-height:1}
+  .jt-time{font-size:0.72rem;font-weight:700;color:#fff;margin-top:2px}
+  .jt-label{font-size:0.58rem;color:#546e7a;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap}
+  .jt-connector{flex:1;height:3px;min-width:12px;border-radius:2px;margin:0 3px;position:relative;top:-4px}
+  .jt-c-walk{background:repeating-linear-gradient(90deg,#546e7a 0,#546e7a 4px,transparent 4px,transparent 8px)}
+  .jt-c-bus{background:#42a5f5}
+  .jt-c-wait{background:repeating-linear-gradient(90deg,#ffab00 0,#ffab00 3px,transparent 3px,transparent 6px)}
+  .jt-c-flight{height:4px}
+  .jt-step-home .jt-time{color:#00e676}
+  .jt-step-arrive .jt-time{color:#00b4d8}
+  .journey-tight .jt-step-home .jt-time{color:#ff5252}
+  .journey-tight{background:#2a1515;border-radius:8px;padding:6px 8px}
   .lh-bus{color:#90caf9}
   .lh-counter{color:#546e7a;font-size:0.7rem;margin-left:auto}
   .no-flight-msg{padding:4px 0;color:#546e7a;font-style:italic;font-size:0.88rem}
@@ -616,11 +625,15 @@ function calcLeaveHome(depTime) {
   const leaveHome = busDep - WALK_TO_BUS_MIN;
   const lh = leaveHome < 0 ? leaveHome + 1440 : leaveHome;
   const busActual = busDep < 0 ? busDep + 1440 : busDep;
+  const fmt = m => `${String(Math.floor(((m%1440)+1440)%1440/60)).padStart(2,'0')}:${String(((m%1440)+1440)%1440%60).padStart(2,'0')}`;
+  const airportArr = busActual + BUS_TO_AIRPORT_MIN;
   return {
-    leaveHome: `${String(Math.floor(lh/60)).padStart(2,'0')}:${String(lh%60).padStart(2,'0')}`,
-    busDep: `${String(Math.floor(busActual/60)).padStart(2,'0')}:${String(busActual%60).padStart(2,'0')}`,
-    counterCloses: `${String(Math.floor((flightMin-60)/60)).padStart(2,'0')}:${String((flightMin-60)%60).padStart(2,'0')}`,
-    tight: (latestBus - busDep) < 15 // less than 15min margin
+    leaveHome: fmt(lh),
+    busDep: fmt(busActual),
+    airportArr: fmt(airportArr),
+    counterCloses: fmt(flightMin - 60),
+    dep: depTime,
+    tight: (latestBus - busDep) < 15
   };
 }
 
@@ -675,21 +688,26 @@ function renderGrid() {
           ${flights.map(f => {
                 const lh = calcLeaveHome(f.dep);
                 const dur = calcDuration(f.dep, f.arr);
-                const pct = Math.round((dur.mins / (14*60)) * 100);
+                const pct = Math.min(100, Math.round((dur.mins / (14*60)) * 100));
                 const barCol = dur.mins > 480 ? '#ff5252' : dur.mins > 300 ? '#ff9800' : '#00e676';
                 return `
                 <div class="flight-block">
                   <div class="flight-row">
                     <span class="fn">${f.fn}</span>
-                    <span class="times">${f.dep} → ${f.arr}</span>
-                    <div class="dur-bar-wrap"><div class="dur-bar" style="width:${pct}%;background:${barCol}"></div><span class="dur-label">${dur.label}</span></div>
                     <span class="freq badge">${freqLabel(f.days)}</span>
                   </div>
-                  <div class="leave-home-row${lh.tight ? ' tight' : ''}">
-                    <span class="lh-icon">🚪</span>
-                    <span class="lh-time">Leave ${lh.leaveHome}</span>
-                    <span class="lh-bus">🚌 ${lh.busDep}</span>
-                    <span class="lh-counter">Counter closes ${lh.counterCloses}</span>
+                  <div class="journey-timeline${lh.tight ? ' journey-tight' : ''}">
+                    <div class="jt-step jt-step-home"><span class="jt-icon">🚪</span><span class="jt-time">${lh.leaveHome}</span><span class="jt-label">Leave</span></div>
+                    <div class="jt-connector jt-c-walk"></div>
+                    <div class="jt-step"><span class="jt-icon">🚌</span><span class="jt-time">${lh.busDep}</span><span class="jt-label">Bus</span></div>
+                    <div class="jt-connector jt-c-bus"></div>
+                    <div class="jt-step"><span class="jt-icon">🏢</span><span class="jt-time">${lh.airportArr}</span><span class="jt-label">Airport</span></div>
+                    <div class="jt-connector jt-c-wait"></div>
+                    <div class="jt-step"><span class="jt-icon">🛂</span><span class="jt-time">${lh.counterCloses}</span><span class="jt-label">Check-in</span></div>
+                    <div class="jt-connector jt-c-wait"></div>
+                    <div class="jt-step"><span class="jt-icon">✈️</span><span class="jt-time">${f.dep}</span><span class="jt-label">Depart</span></div>
+                    <div class="jt-connector jt-c-flight" style="background:linear-gradient(90deg,${barCol},${barCol}88);width:${pct}px;max-width:120px;flex:none"></div>
+                    <div class="jt-step jt-step-arrive"><span class="jt-icon">📍</span><span class="jt-time">${f.arr}</span><span class="jt-label">${dur.label}</span></div>
                   </div>
                 </div>`;
               }).join('')}
