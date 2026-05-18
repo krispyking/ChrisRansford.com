@@ -764,13 +764,13 @@ function updateWeatherPick() {
 async function fetchWeather(dest) {
   const el = document.getElementById(`wx-${dest.iata}`);
   if (!el) return;
-  if (weatherCache[dest.iata]) { renderForecast(el, weatherCache[dest.iata]); return; }
+  if (weatherCache[dest.iata]) { renderForecast(el, weatherCache[dest.iata], dest); return; }
   try {
     const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${dest.lat}&lon=${dest.lng}&appid=${OWM_KEY}&units=metric`);
     const data = await res.json();
     if (data.cod !== '200') throw new Error();
     weatherCache[dest.iata] = data;
-    renderForecast(el, data);
+    renderForecast(el, data, dest);
     updateMapWeather();
     updateWeatherPick(); renderWeatherTop5();
   } catch(e) {
@@ -778,7 +778,7 @@ async function fetchWeather(dest) {
   }
 }
 
-function renderForecast(el, data) {
+function renderForecast(el, data, dest) {
   const list = data.list;
   const selKey = getSelectedDateKey();
 
@@ -831,6 +831,11 @@ function renderForecast(el, data) {
     const icon = item.weather[0].icon;
     const isSel = key === selKey;
     const daySR = calcSunRain(getWeatherForDate(data, key));
+    const jsDay = d.getDay();
+    const dataDay = jsDay === 0 ? 7 : jsDay;
+    const retFlights = dest && dest.inbound ? dest.inbound.filter(f => f.days.includes(dataDay)) : [];
+    const hasReturn = retFlights.length > 0;
+    const retTip = hasReturn ? retFlights.map(f => f.fn + ' ' + f.dep).join(', ') : '';
     forecastHTML += `
       <div class="wx-day${isSel ? ' wx-day-active' : ''}">
         <div class="wx-d">${dayName} ${dateNum}</div>
@@ -838,6 +843,7 @@ function renderForecast(el, data) {
         <div class="wx-t">${hi}°</div>
         <div style="font-size:0.6rem;color:${daySR.sunH >= 9 ? '#ffd600' : daySR.sunH >= 6 ? '#ffab00' : '#78909c'};font-weight:700">☀${daySR.sunH}h</div>
         ${daySR.rainH > 0 ? `<div style="font-size:0.55rem;color:#42a5f5">🌧${daySR.rainH}h</div>` : ''}
+        <div style="font-size:0.65rem;margin-top:3px;${hasReturn ? 'color:#4fc3f7' : 'color:#37474f'}" title="${retTip}">${hasReturn ? '✈️' + retFlights[0].dep : '—'}</div>
       </div>`;
   });
   forecastHTML += '</div>';
