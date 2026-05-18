@@ -339,11 +339,14 @@ document.addEventListener('DOMContentLoaded', () => {
   updateDayLabel();
   renderGrid();
   loadGoogleMaps();
-  document.getElementById('depDate').addEventListener('change', () => {
+  const depInput = document.getElementById('depDate');
+  function onDateChange() {
     updateDayLabel();
     renderGrid();
     document.getElementById('returnPanel').style.display = 'none';
-  });
+  }
+  depInput.addEventListener('change', onDateChange);
+  depInput.addEventListener('input', onDateChange);
 });
 
 function updateDayLabel() {
