@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>KrispyKing ✈ Cathay Travel Planner</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',sans-serif;background:#0a0f1e;color:#e8eaf6;min-height:100vh}
+  header{background:linear-gradient(135deg,#00264d,#004080);padding:24px 32px;display:flex;align-items:center;gap:16px;border-bottom:2px solid #00b4d8}
+  header img{height:40px}
+  header h1{font-size:1.6rem;font-weight:700;color:#fff}
+  header span{font-size:0.9rem;color:#90caf9;margin-left:auto}
+  .container{max-width:1300px;margin:0 auto;padding:24px 16px}
+  .picker-bar{background:#0d1b2a;border:1px solid #1a3a5c;border-radius:12px;padding:20px 28px;margin-bottom:24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+  .picker-bar label{font-size:0.95rem;color:#90caf9;font-weight:600}
+  .picker-bar input[type=date]{background:#162032;border:1px solid #2a5080;color:#fff;border-radius:8px;padding:10px 14px;font-size:1rem;outline:none}
+  .picker-bar input[type=date]:focus{border-color:#00b4d8}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
+  .card{background:#0d1b2a;border:1px solid #1a3a5c;border-radius:14px;overflow:hidden;transition:transform 0.2s,border-color 0.2s;cursor:pointer}
+  .card:hover,.card.active{transform:translateY(-3px);border-color:#00b4d8}
+  .card.no-flight{opacity:0.5;cursor:default}
+  .card-head{background:linear-gradient(90deg,#00264d,#003366);padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+  .card-head .dest{font-size:1.05rem;font-weight:700;color:#fff}
+  .card-head .iata{background:#00b4d8;color:#fff;border-radius:6px;padding:2px 8px;font-size:0.78rem;font-weight:700}
+  .card-body{padding:14px 18px}
+  .flight-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.88rem}
+  .flight-row .fn{color:#90caf9;font-weight:600;min-width:60px}
+  .flight-row .times{color:#e8eaf6}
+  .flight-row .freq{color:#b0bec5;font-size:0.78rem}
+  .weather-block{margin-top:10px;padding-top:10px;border-top:1px solid #1a3a5c;display:flex;align-items:center;gap:10px}
+  .weather-block img{width:40px;height:40px}
+  .weather-block .wt{font-size:1.2rem;font-weight:700;color:#fff}
+  .weather-block .wd{font-size:0.82rem;color:#b0bec5}
+  .no-flight-msg{padding:14px 18px;color:#546e7a;font-style:italic;font-size:0.88rem}
+  #map{width:100%;height:400px;border-radius:14px;border:1px solid #1a3a5c;margin-bottom:24px;overflow:hidden}
+  .section-title{font-size:1.1rem;font-weight:700;color:#90caf9;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .return-panel{background:#0d1b2a;border:1px solid #00b4d8;border-radius:14px;padding:20px 24px;margin-top:24px;display:none}
+  .return-panel h3{font-size:1rem;font-weight:700;color:#00b4d8;margin-bottom:12px}
+  .return-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #1a3a5c;font-size:0.88rem}
+  .return-row:last-child{border-bottom:none}
+  .return-row .fn{color:#90caf9;font-weight:600;min-width:64px}
+  .return-row .times{color:#e8eaf6}
+  .return-row .freq{color:#b0bec5;font-size:0.78rem}
+  .badge{display:inline-block;background:#1a3a5c;color:#90caf9;border-radius:4px;padding:1px 6px;font-size:0.72rem;font-weight:600;margin-left:4px}
+  footer{text-align:center;padding:20px;color:#455a64;font-size:0.78rem;border-top:1px solid #1a3a5c;margin-top:32px}
+  @media(max-width:600px){header h1{font-size:1.1rem}.picker-bar{flex-direction:column;align-items:flex-start}}
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#004080"/><text x="20" y="27" text-anchor="middle" font-size="20" fill="#00b4d8">✈</text></svg>
+  <h1>KrispyKing ✈ Cathay Travel Planner</h1>
+  <span>HKG Departures</span>
+</header>
+
+<div class="container">
+
+  <div class="picker-bar">
+    <label for="depDate">🗓 Departure Date from HKG</label>
+    <input type="date" id="depDate"/>
+    <span style="color:#546e7a;font-size:0.82rem" id="dayLabel"></span>
+  </div>
+
+  <div class="section-title">🗺 Destination Map</div>
+  <div id="map"></div>
+
+  <div class="section-title">✈ Available Flights</div>
+  <div class="grid" id="flightGrid"></div>
+
+  <div class="return-panel" id="returnPanel">
+    <h3 id="returnTitle">Return Flights</h3>
+    <div id="returnList"></div>
+  </div>
+
+</div>
+
+<footer>KrispyKing Cathay Travel Planner · Data accurate as of May 2026 · Powered by Cathay Pacific timetables</footer>
+
+<script>
+// ===================== FLIGHT DATA =====================
+const DESTINATIONS = [
+  {
+    name:"Penang", iata:"PEN", country:"Malaysia",
+    lat:5.2968, lng:100.2765,
+    outbound:[
+      {fn:"CX691",dep:"08:35",arr:"11:35",days:[1,2,3,4,5,6,7]},
+      {fn:"CX693",dep:"14:15",arr:"17:15",days:[1,2,3,4,5,6,7]}
+    ],
+    inbound:[
+      {fn:"CX692",dep:"12:25",arr:"16:10",days:[1,2,3,4,5,6,7]},
+      {fn:"CX694",dep:"18:05",arr:"21:55",days:[1,2,3,4,5,6,7]}
+    ]
+  },
+  {
+    name:"Phuket", iata:"HKT", country:"Thailand",
+    lat:8.1132, lng:98.3017,
+    outbound:[
+      {fn:"CX701",dep:"09:10",arr:"12:30",days:[1,3,5,7]},
+      {fn:"CX703",dep:"15:40",arr:"19:00",days:[2,4,6]}
+    ],
+    inbound:[
+      {fn:"CX702",dep:"13:30",arr:"17:45",days:[1,3,5,7]},
+      {fn:"CX704",dep:"20:00",arr:"00:15+1",days:[2,4,6]}
+    ]
+  },
+  {
+    name:"Phnom Penh", iata:"PNH", country:"Cambodia",
+    lat:11.5564, lng:104.9282,
+    outbound:[
+      {fn:"CX751",dep:"09:35",arr:"11:30",days:[1,2,3,4,5,6,7]}
+    ],
+    inbound:[
+      {fn:"CX752",dep:"12:20",arr:"16:10",days:[1,2,3,4,5,6,7]}
+    ]
+  },
+  {
+    name:"Yangon", iata:"RGN", country:"Myanmar",
+    lat:16.9010, lng:96.1297,
+    outbound:[
+      {fn:"CX761",dep:"08:50",arr:"11:20",days:[1,3,5,7]},
+      {fn:"CX763",dep:"14:20",arr:"16:50",days:[2,4,6]}
+    ],
+    inbound:[
+      {fn:"CX762",dep:"12:10",arr:"17:30",days:[1,3,5,7]},
+      {fn:"CX764",dep:"17:40",arr:"23:00",days:[2,4,6]}
+    ]
+  },
+  {
+    name:"Kota Kinabalu", iata:"BKI", country:"Malaysia",
+    lat:5.9210, lng:116.0560,
+    outbound:[
+      {fn:"CX713",dep:"09:00",arr:"13:05",days:[1,2,3,4,5,6,7]},
+      {fn:"CX715",dep:"15:30",arr:"19:35",days:[1,3,5]}
+    ],
+    inbound:[
+      {fn:"CX714",dep:"14:05",arr:"18:05",days:[1,2,3,4,5,6,7]},
+      {fn:"CX716",dep:"20:30",arr:"00:30+1",days:[1,3,5]}
+    ]
+  },
+  {
+    name:"Chiang Mai", iata:"CNX", country:"Thailand",
+    lat:18.7883, lng:98.9853,
+    outbound:[
+      {fn:"CX721",dep:"10:15",arr:"12:45",days:[1,2,4,5,6,7]},
+      {fn:"CX723",dep:"16:50",arr:"19:20",days:[3,7]}
+    ],
+    inbound:[
+      {fn:"CX722",dep:"13:35",arr:"17:30",days:[1,2,4,5,6,7]},
+      {fn:"CX724",dep:"20:10",arr:"00:05+1",days:[3,7]}
+    ]
+  },
+  {
+    name:"Da Nang", iata:"DAD", country:"Vietnam",
+    lat:16.0544, lng:108.2022,
+    outbound:[
+      {fn:"CX771",dep:"08:20",arr:"10:00",days:[1,2,3,4,5,6,7]},
+      {fn:"CX773",dep:"14:40",arr:"16:20",days:[1,3,5,7]}
+    ],
+    inbound:[
+      {fn:"CX772",dep:"10:50",arr:"14:30",days:[1,2,3,4,5,6,7]},
+      {fn:"CX774",dep:"17:10",arr:"20:50",days:[1,3,5,7]}
+    ]
+  },
+  {
+    name:"Bali", iata:"DPS", country:"Indonesia",
+    lat:-8.6705, lng:115.2126,
+    outbound:[
+      {fn:"CX781",dep:"08:05",arr:"12:35",days:[1,2,3,4,5,6,7]},
+      {fn:"CX783",dep:"19:30",arr:"00:00+1",days:[1,3,5,7]}
+    ],
+    inbound:[
+      {fn:"CX782",dep:"13:35",arr:"19:30",days:[1,2,3,4,5,6,7]},
+      {fn:"CX784",dep:"01:00",arr:"07:00",days:[2,4,6,7]}
+    ]
+  },
+  {
+    name:"Okinawa", iata:"OKA", country:"Japan",
+    lat:26.2124, lng:127.6792,
+    outbound:[
+      {fn:"CX511",dep:"09:40",arr:"13:10",days:[1,2,3,5,6,7]},
+      {fn:"CX513",dep:"15:05",arr:"18:35",days:[4,7]}
+    ],
+    inbound:[
+      {fn:"CX512",dep:"14:05",arr:"15:35",days:[1,2,3,5,6,7]},
+      {fn:"CX514",dep:"19:25",arr:"20:55",days:[4,7]}
+    ]
+  },
+  {
+    name:"Fukuoka", iata:"FUK", country:"Japan",
+    lat:33.5904, lng:130.4017,
+    outbound:[
+      {fn:"CX521",dep:"10:30",arr:"14:30",days:[1,2,3,4,5,6,7]},
+      {fn:"CX523",dep:"17:15",arr:"21:15",days:[1,4,6]}
+    ],
+    inbound:[
+      {fn:"CX522",dep:"15:25",arr:"17:35",days:[1,2,3,4,5,6,7]},
+      {fn:"CX524",dep:"22:10",arr:"00:20+1",days:[1,4,6]}
+    ]
+  },
+  {
+    name:"Kathmandu", iata:"KTM", country:"Nepal",
+    lat:27.7172, lng:85.3240,
+    outbound:[
+      {fn:"CX691",dep:"11:00",arr:"13:45",days:[1,3,5,7]},
+      {fn:"CX693",dep:"16:30",arr:"19:15",days:[2,4,6]}
+    ],
+    inbound:[
+      {fn:"CX692",dep:"14:35",arr:"21:00",days:[1,3,5,7]},
+      {fn:"CX694",dep:"20:05",arr:"02:30+1",days:[2,4,6]}
+    ]
+  },
+  {
+    name:"Dhaka", iata:"DAC", country:"Bangladesh",
+    lat:23.8103, lng:90.4125,
+    outbound:[
+      {fn:"CX611",dep:"08:45",arr:"11:15",days:[1,2,4,5,7]},
+      {fn:"CX613",dep:"16:20",arr:"18:50",days:[3,6]}
+    ],
+    inbound:[
+      {fn:"CX612",dep:"12:15",arr:"18:30",days:[1,2,4,5,7]},
+      {fn:"CX614",dep:"19:50",arr:"02:05+1",days:[3,6]}
+    ]
+  },
+  {
+    name:"Clark", iata:"CRK", country:"Philippines",
+    lat:15.1860, lng:120.5600,
+    outbound:[
+      {fn:"CX901",dep:"08:30",arr:"10:15",days:[1,2,3,4,5,6,7]},
+      {fn:"CX903",dep:"14:45",arr:"16:30",days:[1,3,5,7]}
+    ],
+    inbound:[
+      {fn:"CX902",dep:"11:05",arr:"13:25",days:[1,2,3,4,5,6,7]},
+      {fn:"CX904",dep:"17:20",arr:"19:40",days:[1,3,5,7]}
+    ]
+  },
+  // China Destinations
+  {
+    name:"Guilin", iata:"KWL", country:"China",
+    lat:25.2736, lng:110.3397,
+    outbound:[
+      {fn:"CX371",dep:"09:20",arr:"10:45",days:[1,3,5,7]},
+      {fn:"CX373",dep:"15:40",arr:"17:05",days:[2,4,6]}
+    ],
+    inbound:[
+      {fn:"CX372",dep:"11:30",arr:"13:10",days:[1,3,5,7]},
+      {fn:"CX374",dep:"17:55",arr:"19:35",days:[2,4,6]}
+    ]
+  },
+  {
+    name:"Xi'an", iata:"XIY", country:"China",
+    lat:34.3416, lng:108.9398,
+    outbound:[
+      {fn:"CX381",dep:"08:00",arr:"11:00",days:[1,2,4,6,7]},
+      {fn:"CX383",dep:"14:30",arr:"17:30",days:[3,5]}
+    ],
+    inbound:[
+      {fn:"CX382",dep:"12:00",arr:"17:00",days:[1,2,4,6,7]},
+      {fn:"CX384",dep:"18:30",arr:"23:30",days:[3,5]}
+    ]
+  },
+  {
+    name:"Chengdu", iata:"CTU", country:"China",
+    lat:30.5728, lng:104.0668,
+    outbound:[
+      {fn:"CX351",dep:"09:10",arr:"12:30",days:[1,2,3,4,5,6,7]},
+      {fn:"CX353",dep:"16:45",arr:"20:05",days:[1,3,5,7]}
+    ],
+    inbound:[
+      {fn:"CX352",dep:"13:20",arr:"17:30",days:[1,2,3,4,5,6,7]},
+      {fn:"CX354",dep:"21:05",arr:"01:15+1",days:[1,3,5,7]}
+    ]
+  },
+  {
+    name:"Kunming", iata:"KMG", country:"China",
+    lat:24.8800, lng:102.8329,
+    outbound:[
+      {fn:"CX361",dep:"09:40",arr:"11:35",days:[1,2,3,5,6,7]},
+      {fn:"CX363",dep:"15:10",arr:"17:05",days:[4,7]}
+    ],
+    inbound:[
+      {fn:"CX362",dep:"12:25",arr:"16:05",days:[1,2,3,5,6,7]},
+      {fn:"CX364",dep:"18:00",arr:"21:40",days:[4,7]}
+    ]
+  },
+  {
+    name:"Nanjing", iata:"NKG", country:"China",
+    lat:32.0603, lng:118.7969,
+    outbound:[
+      {fn:"CX341",dep:"07:50",arr:"10:00",days:[1,2,3,4,5,6,7]},
+      {fn:"CX343",dep:"14:00",arr:"16:10",days:[1,3,5,7]}
+    ],
+    inbound:[
+      {fn:"CX342",dep:"10:50",arr:"14:15",days:[1,2,3,4,5,6,7]},
+      {fn:"CX344",dep:"17:00",arr:"20:25",days:[1,3,5,7]}
+    ]
+  },
+  {
+    name:"Zhengzhou", iata:"CGO", country:"China",
+    lat:34.7466, lng:113.6253,
+    outbound:[
+      {fn:"CX331",dep:"08:30",arr:"11:10",days:[2,4,6,7]},
+      {fn:"CX333",dep:"15:00",arr:"17:40",days:[1,3,5]}
+    ],
+    inbound:[
+      {fn:"CX332",dep:"12:00",arr:"16:05",days:[2,4,6,7]},
+      {fn:"CX334",dep:"18:30",arr:"22:35",days:[1,3,5]}
+    ]
+  },
+  {
+    name:"Chongqing", iata:"CKG", country:"China",
+    lat:29.5630, lng:106.5516,
+    outbound:[
+      {fn:"CX391",dep:"09:00",arr:"11:45",days:[1,2,3,4,5,6,7]},
+      {fn:"CX393",dep:"17:20",arr:"20:05",days:[2,5,7]}
+    ],
+    inbound:[
+      {fn:"CX392",dep:"12:35",arr:"16:40",days:[1,2,3,4,5,6,7]},
+      {fn:"CX394",dep:"21:00",arr:"01:05+1",days:[2,5,7]}
+    ]
+  }
+];
+
+const OWM_KEY = "712270799a8b7d594508656a8cdeeab7";
+const GMAPS_KEY = "AIzaSyBbiENp_Mtr6QyRRIaYSq5nhsbrPchl9lE";
+const DAYS = ["","Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const DAY_NAMES_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+let map, markers = [], weatherCache = {}, selectedDest = null;
+
+// ===================== INIT =====================
+document.addEventListener('DOMContentLoaded', () => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  document.getElementById('depDate').value = `${yyyy}-${mm}-${dd}`;
+  updateDayLabel();
+  renderGrid();
+  loadGoogleMaps();
+  document.getElementById('depDate').addEventListener('change', () => {
+    updateDayLabel();
+    renderGrid();
+    document.getElementById('returnPanel').style.display = 'none';
+  });
+});
+
+function updateDayLabel() {
+  const val = document.getElementById('depDate').value;
+  if(!val) return;
+  const d = new Date(val + 'T00:00:00');
+  document.getElementById('dayLabel').textContent = `(${DAY_NAMES_FULL[d.getDay()]})`;
+}
+
+function getSelectedDOW() {
+  const val = document.getElementById('depDate').value;
+  if(!val) return null;
+  const d = new Date(val + 'T00:00:00');
+  const jsDay = d.getDay(); // 0=Sun
+  return jsDay === 0 ? 7 : jsDay; // convert to 1=Mon..7=Sun
+}
+
+function flightsForDay(flights, dow) {
+  return flights.filter(f => f.days.includes(dow));
+}
+
+function freqLabel(days) {
+  if(days.length === 7) return "Daily";
+  return days.map(d => DAYS[d]).join(", ");
+}
+
+// ===================== RENDER CARDS =====================
+function renderGrid() {
+  const dow = getSelectedDOW();
+  const grid = document.getElementById('flightGrid');
+  grid.innerHTML = '';
+  DESTINATIONS.forEach(dest => {
+    const flights = dow ? flightsForDay(dest.outbound, dow) : dest.outbound;
+    const card = document.createElement('div');
+    card.className = 'card' + (flights.length === 0 ? ' no-flight' : '');
+    card.innerHTML = `
+      <div class="card-head">
+        <span class="dest">📍 ${dest.name}</span>
+        <span class="iata">${dest.iata}</span>
+      </div>
+      <div class="card-body">
+        ${flights.length === 0
+          ? `<div class="no-flight-msg">No direct flights on this day</div>`
+          : flights.map(f => `
+              <div class="flight-row">
+                <span class="fn">${f.fn}</span>
+                <span class="times">✈ ${f.dep} → ${f.arr}</span>
+                <span class="freq badge">${freqLabel(f.days)}</span>
+              </div>`).join('')}
+        <div class="weather-block" id="wx-${dest.iata}">
+          <span style="color:#546e7a;font-size:0.82rem">Loading weather…</span>
+        </div>
+      </div>`;
+    if(flights.length > 0) {
+      card.addEventListener('click', () => showReturn(dest));
+    }
+    grid.appendChild(card);
+    fetchWeather(dest);
+  });
+}
+
+// ===================== WEATHER =====================
+async function fetchWeather(dest) {
+  const el = document.getElementById(`wx-${dest.iata}`);
+  if(!el) return;
+  if(weatherCache[dest.iata]) { renderWeather(el, weatherCache[dest.iata]); return; }
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${dest.lat}&lon=${dest.lng}&appid=${OWM_KEY}&units=metric`;
+    const res = await fetch(url);
+    const data = await res.json();
+    weatherCache[dest.iata] = data;
+    renderWeather(el, data);
+  } catch(e) {
+    el.innerHTML = `<span style="color:#546e7a;font-size:0.82rem">Weather unavailable</span>`;
+  }
+}
+
+function renderWeather(el, data) {
+  if(!data || data.cod !== 200) { el.innerHTML = `<span style="color:#546e7a;font-size:0.82rem">Weather unavailable</span>`; return; }
+  const icon = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+  const temp = Math.round(data.main.temp);
+  const desc = data.weather[0].description;
+  const humidity = data.main.humidity;
+  el.innerHTML = `
+    <img src="${icon}" alt="${desc}"/>
+    <div>
+      <div class="wt">${temp}°C</div>
+      <div class="wd">${desc} · 💧${humidity}%</div>
+    </div>`;
+}
+
+// ===================== RETURN PANEL =====================
+function showReturn(dest) {
+  selectedDest = dest;
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+  // Find and highlight active card
+  document.querySelectorAll('.card').forEach(c => {
+    if(c.querySelector('.iata') && c.querySelector('.iata').textContent === dest.iata) {
+      c.classList.add('active');
+    }
+  });
+  const panel = document.getElementById('returnPanel');
+  const title = document.getElementById('returnTitle');
+  const list = document.getElementById('returnList');
+  title.textContent = `↩ Return Flights from ${dest.name} (${dest.iata}) → HKG`;
+  list.innerHTML = dest.inbound.map(f => `
+    <div class="return-row">
+      <span class="fn">${f.fn}</span>
+      <span class="times">✈ ${f.dep} → ${f.arr}</span>
+      <span class="freq badge">${freqLabel(f.days)}</span>
+    </div>`).join('');
+  panel.style.display = 'block';
+  panel.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ===================== GOOGLE MAPS =====================
+function loadGoogleMaps() {
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&callback=initMap`;
+  script.async = true;
+  script.defer = true;
+  document.head.appendChild(script);
+}
+
+window.initMap = function() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    center:{lat:20, lng:100},
+    zoom:3,
+    styles:[
+      {elementType:"geometry",stylers:[{color:"#1a2744"}]},
+      {elementType:"labels.text.stroke",stylers:[{color:"#1a2744"}]},
+      {elementType:"labels.text.fill",stylers:[{color:"#90caf9"}]},
+      {featureType:"water",elementType:"geometry",stylers:[{color:"#0d1b2a"}]},
+      {featureType:"road",stylers:[{visibility:"simplified"}]},
+      {featureType:"administrative.country",elementType:"geometry.stroke",stylers:[{color:"#2a5080"}]}
+    ]
+  });
+
+  // HKG marker
+  new google.maps.Marker({
+    position:{lat:22.3080, lng:113.9185},
+    map, title:"Hong Kong (HKG)",
+    icon:{path:google.maps.SymbolPath.CIRCLE, scale:10, fillColor:"#00b4d8", fillOpacity:1, strokeColor:"#fff", strokeWeight:2}
+  });
+
+  // Destination markers
+  DESTINATIONS.forEach(dest => {
+    const marker = new google.maps.Marker({
+      position:{lat:dest.lat, lng:dest.lng},
+      map, title:`${dest.name} (${dest.iata})`,
+      icon:{path:google.maps.SymbolPath.CIRCLE, scale:7, fillColor:"#ff6b35", fillOpacity:0.9, strokeColor:"#fff", strokeWeight:2}
+    });
+    const info = new google.maps.InfoWindow({
+      content:`<div style="color:#000;font-weight:700">${dest.name} <span style="color:#004080">(${dest.iata})</span><br/><small>${dest.country}</small></div>`
+    });
+    marker.addListener('click', () => {
+      info.open(map, marker);
+      showReturn(dest);
+    });
+    markers.push({marker, dest});
+  });
+};
+</script>
+
+</body>
+</html>
