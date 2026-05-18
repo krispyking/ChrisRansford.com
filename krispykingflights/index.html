@@ -509,6 +509,20 @@ function updateMapWeather() {
     if (items.length === 0) return;
 
     const wx = classifyWeather(items);
+    const clouds = items.length > 0 ? Math.round(items.reduce((s,i) => s + (i.clouds?.all||0), 0) / items.length) : 0;
+
+    // Subtle ambient weather zone — large soft circle
+    let fill, opacity;
+    if (wx.severe) { fill = '#ff1744'; opacity = 0.18; }
+    else if (wx.hasRain) { fill = '#42a5f5'; opacity = 0.06 + clouds * 0.0012; }
+    else if (clouds > 60) { fill = '#78909c'; opacity = 0.05 + clouds * 0.0008; }
+    else { fill = '#ffab00'; opacity = 0.04; }
+
+    const ambientZone = L.circle([dest.lat, dest.lng], {
+      radius: 200000, color: 'transparent', fillColor: fill,
+      fillOpacity: opacity, weight: 0
+    }).addTo(map);
+    wxOverlays.push(ambientZone);
 
     if (wx.severe) {
       const zone = L.circle([dest.lat, dest.lng], {
