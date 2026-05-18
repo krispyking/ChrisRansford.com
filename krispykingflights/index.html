@@ -48,20 +48,26 @@
   .map-tip::before{border-top-color:#00b4d8!important}
   .wx-map-icon{background:none!important;border:none!important}
 
-  /* CARDS */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
+  /* CARDS — single column, wide */
+  .grid{display:flex;flex-direction:column;gap:12px}
   .card{background:#0d1b2a;border:1px solid #1a3a5c;border-radius:14px;overflow:hidden;transition:transform 0.2s,border-color 0.2s;cursor:pointer}
-  .card:hover,.card.active{transform:translateY(-3px);border-color:#00b4d8}
-  .card.no-flight{opacity:0.5;cursor:default}
-  .card.no-flight:hover{transform:none;border-color:#1a3a5c}
-  .card-head{background:linear-gradient(90deg,#00264d,#003366);padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
-  .card-head .dest{font-size:1.05rem;font-weight:700;color:#fff}
-  .card-head .iata{background:#00b4d8;color:#fff;border-radius:6px;padding:2px 8px;font-size:0.78rem;font-weight:700}
-  .card-body{padding:14px 18px}
-  .flight-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.88rem}
-  .flight-row .fn{color:#90caf9;font-weight:600;min-width:60px}
-  .flight-row .times{color:#e8eaf6}
+  .card:hover,.card.active{transform:translateX(4px);border-color:#00b4d8}
+  .card-inner{display:flex;align-items:stretch}
+  .card-left{background:linear-gradient(135deg,#00264d,#003366);padding:16px 20px;min-width:180px;display:flex;flex-direction:column;justify-content:center;gap:4px;border-right:2px solid #1a3a5c}
+  .card-left .dest{font-size:1.15rem;font-weight:700;color:#fff}
+  .card-left .iata{background:#00b4d8;color:#fff;border-radius:6px;padding:2px 8px;font-size:0.78rem;font-weight:700;align-self:flex-start}
+  .card-left .country{font-size:0.75rem;color:#546e7a;margin-top:2px}
+  .card-mid{flex:1;padding:12px 20px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+  .card-right{min-width:280px;padding:10px 16px;border-left:1px solid #1a3a5c;display:flex;flex-direction:column;justify-content:center}
+  .flight-row{display:flex;align-items:center;gap:10px;margin-bottom:4px;font-size:0.9rem}
+  .flight-row .fn{color:#90caf9;font-weight:600;min-width:64px}
+  .flight-row .times{color:#e8eaf6;font-weight:500}
   .flight-row .freq{color:#b0bec5;font-size:0.78rem}
+  @media(max-width:900px){
+    .card-inner{flex-direction:column}
+    .card-left{min-width:auto;border-right:none;border-bottom:2px solid #1a3a5c}
+    .card-right{min-width:auto;border-left:none;border-top:1px solid #1a3a5c}
+  }
   .weather-section{margin-top:10px;padding-top:10px;border-top:1px solid #1a3a5c}
   .wx-loading{color:#546e7a;font-size:0.82rem}
   .wx-forecast{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px}
@@ -520,30 +526,35 @@ function renderGrid() {
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = `
-      <div class="card-head">
-        <span class="dest">${dest.name}</span>
-        <span class="iata">${dest.iata}</span>
-      </div>
-      <div class="card-body">
-        ${flights.map(f => {
-              const lh = calcLeaveHome(f.dep);
-              return `
-              <div class="flight-block">
-                <div class="flight-row">
-                  <span class="fn">${f.fn}</span>
-                  <span class="times">${f.dep} → ${f.arr}</span>
-                  <span class="freq badge">${freqLabel(f.days)}</span>
-                </div>
-                <div class="leave-home-row${lh.tight ? ' tight' : ''}">
-                  <span class="lh-icon">🚪</span>
-                  <span class="lh-time">Leave ${lh.leaveHome}</span>
-                  <span class="lh-bus">🚌 ${lh.busDep}</span>
-                  <span class="lh-counter">Counter closes ${lh.counterCloses}</span>
-                </div>
-              </div>`;
-            }).join('')}
-        <div class="weather-section" id="wx-${dest.iata}">
-          <span class="wx-loading">Loading forecast…</span>
+      <div class="card-inner">
+        <div class="card-left">
+          <span class="dest">${dest.name}</span>
+          <span class="iata">${dest.iata}</span>
+          <span class="country">${dest.country}</span>
+        </div>
+        <div class="card-mid">
+          ${flights.map(f => {
+                const lh = calcLeaveHome(f.dep);
+                return `
+                <div class="flight-block">
+                  <div class="flight-row">
+                    <span class="fn">${f.fn}</span>
+                    <span class="times">${f.dep} → ${f.arr}</span>
+                    <span class="freq badge">${freqLabel(f.days)}</span>
+                  </div>
+                  <div class="leave-home-row${lh.tight ? ' tight' : ''}">
+                    <span class="lh-icon">🚪</span>
+                    <span class="lh-time">Leave ${lh.leaveHome}</span>
+                    <span class="lh-bus">🚌 ${lh.busDep}</span>
+                    <span class="lh-counter">Counter closes ${lh.counterCloses}</span>
+                  </div>
+                </div>`;
+              }).join('')}
+        </div>
+        <div class="card-right">
+          <div class="weather-section" id="wx-${dest.iata}">
+            <span class="wx-loading">Loading forecast…</span>
+          </div>
         </div>
       </div>`;
     if (flights.length > 0) {
