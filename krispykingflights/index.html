@@ -404,6 +404,26 @@ function drawMap() {
   L.circleMarker([HKG.lat, HKG.lng], {radius:10, color:'#fff', weight:2, fillColor:'#00b4d8', fillOpacity:1})
     .addTo(map).bindTooltip('Hong Kong (HKG)', {permanent:true, direction:'top', className:'map-tip'});
 
+  map.on('moveend', filterCardsByViewport);
+
+  function filterCardsByViewport() {
+    const bounds = map.getBounds();
+    const visible = new Set();
+    DESTINATIONS.forEach(dest => {
+      if (bounds.contains([dest.lat, dest.lng])) visible.add(dest.iata);
+    });
+    let shown = 0;
+    document.querySelectorAll('.card[data-iata]').forEach(card => {
+      const iata = card.getAttribute('data-iata');
+      if (visible.has(iata)) { card.style.display = ''; shown++; }
+      else { card.style.display = 'none'; }
+    });
+    const title = document.getElementById('flightsTitle');
+    if (visible.size < DESTINATIONS.length) {
+      title.textContent = `✈ Showing ${shown} destinations in view`;
+    }
+  }
+
   DESTINATIONS.forEach(dest => {
     const line = L.polyline([[HKG.lat, HKG.lng],[dest.lat, dest.lng]], {
       color:'#00b4d8', weight:1.5, dashArray:'6,4', opacity:0.4
