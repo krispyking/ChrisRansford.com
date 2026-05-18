@@ -72,6 +72,12 @@
   .wx-day img{width:28px;height:28px;display:block;margin:0 auto}
   .wx-day .wx-t{font-size:0.72rem;font-weight:700;color:#fff}
   .wx-day .wx-lo{font-size:0.62rem;color:#546e7a}
+  .wx-day-active{border:2px solid #00b4d8;background:#0d2844!important;box-shadow:0 0 8px rgba(0,180,216,0.3)}
+  .wx-selected-day{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 8px;background:linear-gradient(90deg,#0d2844,#162032);border-radius:8px;border:1px solid #1a3a5c}
+  .wx-selected-day img{width:44px;height:44px}
+  .wx-sel-info{flex:1}
+  .wx-sel-temp{font-size:1.1rem;font-weight:700;color:#fff}
+  .wx-sel-desc{font-size:0.78rem;color:#90caf9}
   .wx-summary{margin-top:8px;font-size:0.75rem;line-height:1.5;color:#b0bec5}
   .wx-summary strong{color:#90caf9;font-weight:600}
   .wx-period{display:flex;align-items:center;gap:6px;padding:3px 0}
@@ -273,6 +279,7 @@ function onDateChange() {
   updateDateDisplay();
   renderGrid();
   updateMap();
+  updateMapWeather();
   document.getElementById('returnPanel').style.display = 'none';
 }
 
@@ -369,52 +376,63 @@ function updateMap() {
 }
 
 // ===================== MAP WEATHER OVERLAY =====================
+function getSelectedDateKey() {
+  return selectedDate.toISOString().slice(0,10);
+}
+
+function getWeatherForDate(data, dateKey) {
+  if (!data || !data.list) return [];
+  return data.list.filter(i => new Date(i.dt * 1000).toISOString().slice(0,10) === dateKey);
+}
+
+function classifyWeather(items) {
+  if (items.length === 0) return {emoji:'—', color:'#546e7a', severe:false, desc:'No data'};
+  const dominated = {};
+  items.forEach(i => { const m = i.weather[0].main; dominated[m] = (dominated[m]||0)+1; });
+  const topCondition = Object.entries(dominated).sort((a,b) => b[1]-a[1])[0][0];
+  const hasStorm = items.some(i => ['Thunderstorm','Tornado','Squall','Hurricane'].includes(i.weather[0].main));
+  const hasHeavyRain = items.some(i => i.rain && i.rain['3h'] > 10);
+  const hasRain = items.some(i => ['Rain','Drizzle'].includes(i.weather[0].main));
+  const severe = hasStorm || hasHeavyRain;
+  const temps = items.map(i => i.main.temp);
+  const hi = Math.round(Math.max(...temps)), lo = Math.round(Math.min(...temps));
+  const descs = {};
+  items.forEach(i => { descs[i.weather[0].description] = (descs[i.weather[0].description]||0)+1; });
+  const topDesc = Object.entries(descs).sort((a,b)=>b[1]-a[1])[0][0];
+
+  let emoji, color;
+  if (severe) { emoji = '⛔'; color = '#ff1744'; }
+  else if (hasRain) { emoji = '🌧'; color = '#42a5f5'; }
+  else if (['Clouds'].includes(topCondition)) { emoji = '☁️'; color = '#78909c'; }
+  else { emoji = '☀️'; color = '#ffab00'; }
+
+  return {emoji, color, severe, desc: topDesc, hi, lo, hasRain};
+}
+
 function updateMapWeather() {
   wxOverlays.forEach(o => map.removeLayer(o));
   wxOverlays = [];
+  const dateKey = getSelectedDateKey();
 
   DESTINATIONS.forEach(dest => {
     const data = weatherCache[dest.iata];
-    if (!data || !data.list) return;
+    const items = getWeatherForDate(data, dateKey);
+    if (items.length === 0) return;
 
-    // Analyze next 48h of forecast
-    const now = Date.now();
-    const next48 = data.list.filter(i => (i.dt * 1000 - now) < 48 * 3600000);
-    if (next48.length === 0) return;
+    const wx = classifyWeather(items);
 
-    // Classify severity
-    const dominated = {};
-    next48.forEach(i => {
-      const m = i.weather[0].main;
-      dominated[m] = (dominated[m] || 0) + 1;
-    });
-    const topCondition = Object.entries(dominated).sort((a,b) => b[1] - a[1])[0][0];
-    const hasStorm = next48.some(i => ['Thunderstorm','Tornado','Squall','Hurricane'].includes(i.weather[0].main));
-    const hasHeavyRain = next48.some(i => i.rain && i.rain['3h'] > 10);
-    const hasRain = next48.some(i => ['Rain','Drizzle'].includes(i.weather[0].main));
-    const severe = hasStorm || hasHeavyRain;
-
-    // Pick emoji
-    let emoji, color;
-    if (severe) { emoji = '⛔'; color = '#ff1744'; }
-    else if (hasRain) { emoji = '🌧'; color = '#42a5f5'; }
-    else if (['Clouds'].includes(topCondition)) { emoji = '☁️'; color = '#78909c'; }
-    else { emoji = '☀️'; color = '#ffab00'; }
-
-    // Red warning zone for severe weather
-    if (severe) {
+    if (wx.severe) {
       const zone = L.circle([dest.lat, dest.lng], {
         radius: 120000, color: '#ff1744', fillColor: '#ff1744',
         fillOpacity: 0.15, weight: 1.5, dashArray: '4,4'
       }).addTo(map);
-      zone.bindTooltip(`⚠️ ${dest.name}: SEVERE WEATHER — storms/heavy rain expected`, {direction:'top', className:'map-tip'});
+      zone.bindTooltip(`⚠️ ${dest.name}: SEVERE — ${wx.desc}`, {direction:'top', className:'map-tip'});
       wxOverlays.push(zone);
     }
 
-    // Weather icon as DivIcon offset from route marker
     const icon = L.divIcon({
       className: 'wx-map-icon',
-      html: `<span style="font-size:18px;filter:drop-shadow(0 0 3px ${color})">${emoji}</span>`,
+      html: `<span style="font-size:18px;filter:drop-shadow(0 0 3px ${wx.color})">${wx.emoji}</span>`,
       iconSize: [24, 24],
       iconAnchor: [-8, 12]
     });
@@ -553,7 +571,7 @@ async function fetchWeather(dest) {
 
 function renderForecast(el, data) {
   const list = data.list;
-  const now = Date.now();
+  const selKey = getSelectedDateKey();
 
   // Group by day — pick midday (12:00) entry or closest
   const dayMap = {};
@@ -567,7 +585,23 @@ function renderForecast(el, data) {
   });
   const days = Object.keys(dayMap).sort().slice(0, 7);
 
-  // 7-day mini calendar
+  // Selected day weather — prominent display
+  const selItems = getWeatherForDate(data, selKey);
+  const selWx = classifyWeather(selItems);
+  let selHTML = '';
+  if (selItems.length > 0) {
+    const midItem = selItems[Math.floor(selItems.length/2)];
+    selHTML = `
+      <div class="wx-selected-day">
+        <img src="https://openweathermap.org/img/wn/${midItem.weather[0].icon}@2x.png" alt=""/>
+        <div class="wx-sel-info">
+          <div class="wx-sel-temp">${selWx.lo}–${selWx.hi}°C ${selWx.emoji}</div>
+          <div class="wx-sel-desc">${selWx.desc}${selWx.hasRain ? ' · Pack umbrella' : ''}${selWx.severe ? ' · ⚠️ AVOID' : ''}</div>
+        </div>
+      </div>`;
+  }
+
+  // 7-day mini calendar with selected day highlighted
   let forecastHTML = '<div class="wx-forecast">';
   days.forEach(key => {
     const item = dayMap[key];
@@ -577,8 +611,9 @@ function renderForecast(el, data) {
     const hi = Math.round(item.main.temp_max);
     const lo = Math.round(item.main.temp_min);
     const icon = item.weather[0].icon;
+    const isSel = key === selKey;
     forecastHTML += `
-      <div class="wx-day">
+      <div class="wx-day${isSel ? ' wx-day-active' : ''}">
         <div class="wx-d">${dayName} ${dateNum}</div>
         <img src="https://openweathermap.org/img/wn/${icon}@2x.png" alt=""/>
         <div class="wx-t">${hi}°</div>
@@ -587,42 +622,42 @@ function renderForecast(el, data) {
   });
   forecastHTML += '</div>';
 
-  // Period summaries: 0-24h, 24-48h, 48-72h, 72h+
+  // Period summaries relative to selected date
+  const selStart = new Date(selKey + 'T00:00:00').getTime();
   const periods = [
-    {label:'Next 24h', minH:0, maxH:24},
-    {label:'24–48h', minH:24, maxH:48},
-    {label:'48–72h', minH:48, maxH:72},
-    {label:'3–5 days', minH:72, maxH:999}
+    {label:'Morning', startH:6, endH:12},
+    {label:'Afternoon', startH:12, endH:18},
+    {label:'Evening', startH:18, endH:24}
   ];
 
   let summaryHTML = '<div class="wx-summary">';
   periods.forEach(p => {
     const items = list.filter(item => {
-      const h = (item.dt * 1000 - now) / 3600000;
-      return h >= p.minH && h < p.maxH;
+      const dt = item.dt * 1000;
+      const h = (dt - selStart) / 3600000;
+      return h >= p.startH && h < p.endH;
     });
     if (items.length === 0) return;
     const temps = items.map(i => i.main.temp);
     const hi = Math.round(Math.max(...temps));
     const lo = Math.round(Math.min(...temps));
-    const rain = items.some(i => i.weather[0].main === 'Rain' || i.weather[0].main === 'Drizzle' || i.weather[0].main === 'Thunderstorm');
     const descs = {};
     items.forEach(i => { descs[i.weather[0].description] = (descs[i.weather[0].description]||0)+1; });
     const topDesc = Object.entries(descs).sort((a,b)=>b[1]-a[1])[0][0];
     const mainIcon = items[Math.floor(items.length/2)].weather[0].icon;
-    const rainPct = items.filter(i => i.rain && i.rain['3h'] > 0).length;
-    const rainChance = Math.round((rainPct / items.length) * 100);
+    const rainItems = items.filter(i => i.rain && i.rain['3h'] > 0);
+    const rainChance = Math.round((rainItems.length / items.length) * 100);
 
     summaryHTML += `
       <div class="wx-period">
         <span class="wx-period-label">${p.label}</span>
         <img class="wx-period-icon" src="https://openweathermap.org/img/wn/${mainIcon}.png" alt=""/>
-        <span class="wx-period-detail">${topDesc}, ${lo}–${hi}°C${rain ? ' 🌧' : ''}${rainChance > 0 ? ` (${rainChance}% rain)` : ''}</span>
+        <span class="wx-period-detail">${topDesc}, ${lo}–${hi}°C${rainChance > 0 ? ` 🌧 ${rainChance}%` : ''}</span>
       </div>`;
   });
   summaryHTML += '</div>';
 
-  el.innerHTML = forecastHTML + summaryHTML;
+  el.innerHTML = selHTML + forecastHTML + summaryHTML;
 }
 
 // ===================== RETURN PANEL =====================
