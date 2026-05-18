@@ -46,6 +46,7 @@
   #map{width:100%;height:420px;border-radius:14px;border:1px solid #1a3a5c;margin-bottom:24px;z-index:1}
   .map-tip{background:#162032!important;border:1px solid #00b4d8!important;color:#fff!important;font-size:0.82rem!important;font-weight:600!important;border-radius:6px!important;box-shadow:none!important}
   .map-tip::before{border-top-color:#00b4d8!important}
+  .wx-map-icon{background:none!important;border:none!important}
 
   /* CARDS */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
@@ -269,6 +270,7 @@ function onDateChange() {
 // ===================== MAP (Leaflet) =====================
 let map, routeLines = [], destMarkers = [];
 let prevActiveSet = new Set();
+let wxOverlays = []; // weather icons + warning zones on map
 
 function drawMap() {
   map = L.map('map', {zoomControl:true, scrollWheelZoom:true}).setView([18, 105], 4);
@@ -357,6 +359,61 @@ function updateMap() {
   prevActiveSet = newActiveSet;
 }
 
+// ===================== MAP WEATHER OVERLAY =====================
+function updateMapWeather() {
+  wxOverlays.forEach(o => map.removeLayer(o));
+  wxOverlays = [];
+
+  DESTINATIONS.forEach(dest => {
+    const data = weatherCache[dest.iata];
+    if (!data || !data.list) return;
+
+    // Analyze next 48h of forecast
+    const now = Date.now();
+    const next48 = data.list.filter(i => (i.dt * 1000 - now) < 48 * 3600000);
+    if (next48.length === 0) return;
+
+    // Classify severity
+    const dominated = {};
+    next48.forEach(i => {
+      const m = i.weather[0].main;
+      dominated[m] = (dominated[m] || 0) + 1;
+    });
+    const topCondition = Object.entries(dominated).sort((a,b) => b[1] - a[1])[0][0];
+    const hasStorm = next48.some(i => ['Thunderstorm','Tornado','Squall','Hurricane'].includes(i.weather[0].main));
+    const hasHeavyRain = next48.some(i => i.rain && i.rain['3h'] > 10);
+    const hasRain = next48.some(i => ['Rain','Drizzle'].includes(i.weather[0].main));
+    const severe = hasStorm || hasHeavyRain;
+
+    // Pick emoji
+    let emoji, color;
+    if (severe) { emoji = '⛔'; color = '#ff1744'; }
+    else if (hasRain) { emoji = '🌧'; color = '#42a5f5'; }
+    else if (['Clouds'].includes(topCondition)) { emoji = '☁️'; color = '#78909c'; }
+    else { emoji = '☀️'; color = '#ffab00'; }
+
+    // Red warning zone for severe weather
+    if (severe) {
+      const zone = L.circle([dest.lat, dest.lng], {
+        radius: 120000, color: '#ff1744', fillColor: '#ff1744',
+        fillOpacity: 0.15, weight: 1.5, dashArray: '4,4'
+      }).addTo(map);
+      zone.bindTooltip(`⚠️ ${dest.name}: SEVERE WEATHER — storms/heavy rain expected`, {direction:'top', className:'map-tip'});
+      wxOverlays.push(zone);
+    }
+
+    // Weather icon as DivIcon offset from route marker
+    const icon = L.divIcon({
+      className: 'wx-map-icon',
+      html: `<span style="font-size:18px;filter:drop-shadow(0 0 3px ${color})">${emoji}</span>`,
+      iconSize: [24, 24],
+      iconAnchor: [-8, 12]
+    });
+    const wxMarker = L.marker([dest.lat, dest.lng], {icon, interactive: false}).addTo(map);
+    wxOverlays.push(wxMarker);
+  });
+}
+
 // ===================== FLIGHT LOGIC =====================
 function getSelectedDOW() {
   const jsDay = selectedDate.getDay();
@@ -428,6 +485,7 @@ async function fetchWeather(dest) {
     if (data.cod !== '200') throw new Error();
     weatherCache[dest.iata] = data;
     renderForecast(el, data);
+    updateMapWeather();
   } catch(e) {
     el.innerHTML = '<span class="wx-loading">Weather unavailable</span>';
   }
