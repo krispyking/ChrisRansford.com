@@ -61,10 +61,22 @@
   .flight-row .fn{color:#90caf9;font-weight:600;min-width:60px}
   .flight-row .times{color:#e8eaf6}
   .flight-row .freq{color:#b0bec5;font-size:0.78rem}
-  .weather-block{margin-top:10px;padding-top:10px;border-top:1px solid #1a3a5c;display:flex;align-items:center;gap:10px}
-  .weather-block img{width:40px;height:40px}
-  .weather-block .wt{font-size:1.2rem;font-weight:700;color:#fff}
-  .weather-block .wd{font-size:0.82rem;color:#b0bec5}
+  .weather-section{margin-top:10px;padding-top:10px;border-top:1px solid #1a3a5c}
+  .wx-loading{color:#546e7a;font-size:0.82rem}
+  .wx-forecast{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px}
+  .wx-forecast::-webkit-scrollbar{height:3px}
+  .wx-forecast::-webkit-scrollbar-thumb{background:#1a3a5c;border-radius:3px}
+  .wx-day{flex-shrink:0;text-align:center;padding:4px 6px;border-radius:6px;background:#162032;min-width:52px}
+  .wx-day .wx-d{font-size:0.62rem;color:#546e7a;text-transform:uppercase}
+  .wx-day img{width:28px;height:28px;display:block;margin:0 auto}
+  .wx-day .wx-t{font-size:0.72rem;font-weight:700;color:#fff}
+  .wx-day .wx-lo{font-size:0.62rem;color:#546e7a}
+  .wx-summary{margin-top:8px;font-size:0.75rem;line-height:1.5;color:#b0bec5}
+  .wx-summary strong{color:#90caf9;font-weight:600}
+  .wx-period{display:flex;align-items:center;gap:6px;padding:3px 0}
+  .wx-period-label{min-width:70px;font-weight:600;color:#90caf9;font-size:0.72rem}
+  .wx-period-detail{color:#b0bec5;font-size:0.72rem}
+  .wx-period-icon{width:20px;height:20px}
   .no-flight-msg{padding:4px 0;color:#546e7a;font-style:italic;font-size:0.88rem}
   .badge{display:inline-block;background:#1a3a5c;color:#90caf9;border-radius:4px;padding:1px 6px;font-size:0.72rem;font-weight:600;margin-left:4px}
   .flight-count{font-size:0.78rem;color:#00b4d8;font-weight:600;margin-top:2px}
@@ -350,8 +362,8 @@ function renderGrid() {
                 <span class="times">${f.dep} → ${f.arr}</span>
                 <span class="freq badge">${freqLabel(f.days)}</span>
               </div>`).join('')}
-        <div class="weather-block" id="wx-${dest.iata}">
-          <span style="color:#546e7a;font-size:0.82rem">Loading weather…</span>
+        <div class="weather-section" id="wx-${dest.iata}">
+          <span class="wx-loading">Loading forecast…</span>
         </div>
       </div>`;
     if (flights.length > 0) {
@@ -368,29 +380,94 @@ function renderGrid() {
     `✈ ${totalFlights} Flights to ${availableDests} Destinations`;
 }
 
-// ===================== WEATHER =====================
+// ===================== WEATHER (5-day forecast) =====================
 async function fetchWeather(dest) {
   const el = document.getElementById(`wx-${dest.iata}`);
   if (!el) return;
-  if (weatherCache[dest.iata]) { renderWeather(el, weatherCache[dest.iata]); return; }
+  if (weatherCache[dest.iata]) { renderForecast(el, weatherCache[dest.iata]); return; }
   try {
-    const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${dest.lat}&lon=${dest.lng}&appid=${OWM_KEY}&units=metric`);
+    const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${dest.lat}&lon=${dest.lng}&appid=${OWM_KEY}&units=metric`);
     const data = await res.json();
+    if (data.cod !== '200') throw new Error();
     weatherCache[dest.iata] = data;
-    renderWeather(el, data);
+    renderForecast(el, data);
   } catch(e) {
-    el.innerHTML = '<span style="color:#546e7a;font-size:0.82rem">Weather unavailable</span>';
+    el.innerHTML = '<span class="wx-loading">Weather unavailable</span>';
   }
 }
 
-function renderWeather(el, data) {
-  if (!data || data.cod !== 200) { el.innerHTML = '<span style="color:#546e7a;font-size:0.82rem">Weather unavailable</span>'; return; }
-  el.innerHTML = `
-    <img src="https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png" alt="${data.weather[0].description}"/>
-    <div>
-      <div class="wt">${Math.round(data.main.temp)}°C</div>
-      <div class="wd">${data.weather[0].description} · ${data.main.humidity}% humidity</div>
-    </div>`;
+function renderForecast(el, data) {
+  const list = data.list;
+  const now = Date.now();
+
+  // Group by day — pick midday (12:00) entry or closest
+  const dayMap = {};
+  list.forEach(item => {
+    const d = new Date(item.dt * 1000);
+    const key = d.toISOString().slice(0,10);
+    const hour = d.getHours();
+    if (!dayMap[key] || Math.abs(hour - 13) < Math.abs(new Date(dayMap[key].dt * 1000).getHours() - 13)) {
+      dayMap[key] = item;
+    }
+  });
+  const days = Object.keys(dayMap).sort().slice(0, 7);
+
+  // 7-day mini calendar
+  let forecastHTML = '<div class="wx-forecast">';
+  days.forEach(key => {
+    const item = dayMap[key];
+    const d = new Date(key + 'T12:00:00');
+    const dayName = DAY_NAMES[d.getDay()];
+    const dateNum = d.getDate();
+    const hi = Math.round(item.main.temp_max);
+    const lo = Math.round(item.main.temp_min);
+    const icon = item.weather[0].icon;
+    forecastHTML += `
+      <div class="wx-day">
+        <div class="wx-d">${dayName} ${dateNum}</div>
+        <img src="https://openweathermap.org/img/wn/${icon}@2x.png" alt=""/>
+        <div class="wx-t">${hi}°</div>
+        <div class="wx-lo">${lo}°</div>
+      </div>`;
+  });
+  forecastHTML += '</div>';
+
+  // Period summaries: 0-24h, 24-48h, 48-72h, 72h+
+  const periods = [
+    {label:'Next 24h', minH:0, maxH:24},
+    {label:'24–48h', minH:24, maxH:48},
+    {label:'48–72h', minH:48, maxH:72},
+    {label:'3–5 days', minH:72, maxH:999}
+  ];
+
+  let summaryHTML = '<div class="wx-summary">';
+  periods.forEach(p => {
+    const items = list.filter(item => {
+      const h = (item.dt * 1000 - now) / 3600000;
+      return h >= p.minH && h < p.maxH;
+    });
+    if (items.length === 0) return;
+    const temps = items.map(i => i.main.temp);
+    const hi = Math.round(Math.max(...temps));
+    const lo = Math.round(Math.min(...temps));
+    const rain = items.some(i => i.weather[0].main === 'Rain' || i.weather[0].main === 'Drizzle' || i.weather[0].main === 'Thunderstorm');
+    const descs = {};
+    items.forEach(i => { descs[i.weather[0].description] = (descs[i.weather[0].description]||0)+1; });
+    const topDesc = Object.entries(descs).sort((a,b)=>b[1]-a[1])[0][0];
+    const mainIcon = items[Math.floor(items.length/2)].weather[0].icon;
+    const rainPct = items.filter(i => i.rain && i.rain['3h'] > 0).length;
+    const rainChance = Math.round((rainPct / items.length) * 100);
+
+    summaryHTML += `
+      <div class="wx-period">
+        <span class="wx-period-label">${p.label}</span>
+        <img class="wx-period-icon" src="https://openweathermap.org/img/wn/${mainIcon}.png" alt=""/>
+        <span class="wx-period-detail">${topDesc}, ${lo}–${hi}°C${rain ? ' 🌧' : ''}${rainChance > 0 ? ` (${rainChance}% rain)` : ''}</span>
+      </div>`;
+  });
+  summaryHTML += '</div>';
+
+  el.innerHTML = forecastHTML + summaryHTML;
 }
 
 // ===================== RETURN PANEL =====================
