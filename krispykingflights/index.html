@@ -287,15 +287,24 @@ function updateMap() {
     const dest = DESTINATIONS.find(d => d.iata === iata);
     const flights = flightsForDay(dest.outbound, dow);
     if (flights.length === 0) {
-      marker.setStyle({fillColor:'#455a64', fillOpacity:0.3, radius:4});
+      marker.setStyle({fillColor:'#455a64', fillOpacity:0.1, radius:3, weight:0.5, color:'#455a64'});
+      marker.closeTooltip();
+      marker.unbindTooltip();
+      marker.bindTooltip(`${dest.name} — No flights`, {direction:'top', className:'map-tip'});
     } else {
-      marker.setStyle({fillColor:'#ff6b35', fillOpacity:0.9, radius:7});
+      marker.setStyle({fillColor:'#00e676', fillOpacity:1, radius:9, weight:2, color:'#fff'});
+      marker.unbindTooltip();
+      marker.bindTooltip(`${dest.name} (${dest.iata}) — ${flights.length} flight${flights.length>1?'s':''}`, {direction:'top', className:'map-tip'});
     }
   });
   routeLines.forEach(({line, iata}) => {
     const dest = DESTINATIONS.find(d => d.iata === iata);
     const flights = flightsForDay(dest.outbound, dow);
-    line.setStyle({opacity: flights.length === 0 ? 0.1 : 0.4});
+    line.setStyle({
+      opacity: flights.length === 0 ? 0.05 : 0.6,
+      weight: flights.length === 0 ? 0.5 : 2,
+      color: flights.length === 0 ? '#455a64' : '#00b4d8'
+    });
   });
 }
 
