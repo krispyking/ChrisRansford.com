@@ -906,21 +906,38 @@ function renderWeatherTop5() {
     document.getElementById('weatherPick').after(box);
   }
   const ranking = getWeatherRanking();
-  const top5 = ranking.slice(0, 5);
-  if (top5.length === 0) { box.style.display = 'none'; return; }
+  const top8 = ranking.slice(0, 8);
+  if (top8.length === 0) { box.style.display = 'none'; return; }
   box.style.display = 'block';
+  const maxSun = Math.max(...top8.map(r => r.sr.sunH), 1);
   box.innerHTML = `
-    <div class="wx-rank-title" style="margin-bottom:8px">🏆 Top 5 Weather Destinations Today</div>
-    <div class="wx-rank-list">${top5.map((r, i) => `
-      <div class="wx-rank-item">
-        <span class="wx-rank-num">${i+1}</span>
-        <span class="wx-rank-name">${r.dest.name}</span>
-        <span style="font-size:1rem">${r.wx.emoji}</span>
-        <span class="wx-rank-temp">${r.wx.hi}°C</span>
-        <span style="color:#ffd600;font-size:0.72rem;font-weight:700">☀${r.sr.sunH}h</span>
-        ${r.sr.rainH > 0 ? `<span style="color:#42a5f5;font-size:0.68rem">🌧${r.sr.rainH}h</span>` : ''}
-      </div>`).join('')}
+    <div class="wx-rank-title" style="margin-bottom:10px">🏆 Top 8 Weather Destinations Today</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${top8.map((r, i) => {
+      const sunPct = Math.round((r.sr.sunH / maxSun) * 100);
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+      return `<div style="background:#0a1628;border:1px solid ${i < 3 ? '#ffd600' : '#1a3a5c'};border-radius:10px;padding:10px;text-align:center;position:relative;${i === 0 ? 'box-shadow:0 0 12px rgba(255,214,0,0.2)' : ''}">
+        <div style="font-size:0.62rem;color:#546e7a;position:absolute;top:6px;left:8px">#${i+1}</div>
+        ${medal ? `<div style="position:absolute;top:4px;right:6px;font-size:0.9rem">${medal}</div>` : ''}
+        <div style="font-size:1.5rem;margin:2px 0">${r.wx.emoji}</div>
+        <div style="font-size:0.85rem;font-weight:700;color:#fff">${r.dest.name}</div>
+        <div style="font-size:0.68rem;color:#546e7a;margin-bottom:6px">${r.dest.iata} · ${r.wx.hi}°C</div>
+        <div style="display:flex;align-items:center;gap:4px;justify-content:center">
+          <span style="font-size:0.8rem">☀️</span>
+          <div style="flex:1;height:5px;background:#1a2a3a;border-radius:3px;max-width:60px"><div style="height:100%;width:${sunPct}%;background:linear-gradient(90deg,#ffd600,#ff9100);border-radius:3px"></div></div>
+          <span style="font-size:0.72rem;font-weight:700;color:#ffd600">${r.sr.sunH}h</span>
+        </div>
+        ${r.sr.rainH > 0 ? `<div style="font-size:0.65rem;color:#42a5f5;margin-top:3px">🌧 ${r.sr.rainH}h (${r.sr.rainPct}%)</div>` : `<div style="font-size:0.65rem;color:#00e676;margin-top:3px">No rain ✓</div>`}
+      </div>`}).join('')}
     </div>`;
+  box.querySelectorAll('[style*="background:#0a1628"]').forEach(card => {
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', () => {
+      const name = card.querySelector('div[style*="font-weight:700;color:#fff"]').textContent;
+      document.querySelector(`[data-iata] .dest`)?.closest('.card');
+      const target = [...document.querySelectorAll('.card')].find(c => c.querySelector('.dest')?.textContent === name);
+      if (target) target.scrollIntoView({behavior:'smooth', block:'center'});
+    });
+  });
 }
 
 // ===================== RETURN PANEL =====================
