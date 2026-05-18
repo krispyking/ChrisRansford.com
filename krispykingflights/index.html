@@ -578,8 +578,8 @@ const BUS_TO_AIRPORT_MIN = 40;
 const AIRPORT_BEFORE_MIN = 80; // 1h20m before takeoff
 const WALK_TO_BUS_MIN = 5;
 
-const CX_LOGO = 'https://upload.wikimedia.org/wikipedia/en/thumb/1/1d/Cathay_Pacific_logo.svg/120px-Cathay_Pacific_logo.svg.png';
-const UO_LOGO = 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/HK_Express_logo.svg/120px-HK_Express_logo.svg.png';
+const CX_LOGO = '';
+const UO_LOGO = '';
 const ONEWORLD = ['QF','BA','JL','AA','IB','AY','MH','QR','RJ','S7','UL','AT','FJ'];
 
 function carrierInfo(fn) {
@@ -716,7 +716,7 @@ function renderGrid() {
                 return `
                 <div class="flight-block">
                   <div class="flight-row">
-                    <span class="fn">${cr.logo ? `<img class="carrier-logo" src="${cr.logo}" alt="${cr.tag}"/>` : ''}<span class="carrier-tag ${cr.cls}">${cr.tag}</span>${f.fn}</span>
+                    <span class="fn"><span class="carrier-tag ${cr.cls}">${cr.tag}</span>${f.fn}</span>
                     <span class="times">${f.dep} → ${f.arr}</span>
                     <span class="lh-flight-dur"><span class="lh-dur-bar" style="width:${pct}px;background:${barCol}"></span><span class="lh-dur-label">${dur.label}</span></span>
                     <span class="freq badge">${freqLabel(f.days)}</span>
