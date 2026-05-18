@@ -33,6 +33,12 @@
   .date-nav button:hover{background:#1a2a44;border-color:#00b4d8}
   .selected-date-display{font-size:1rem;font-weight:700;color:#fff;flex:1;text-align:center}
 
+  /* STATS BAR */
+  .stats-bar{background:linear-gradient(135deg,#00264d,#003366);border:1px solid #00b4d8;border-radius:12px;padding:18px 28px;margin-bottom:24px;display:flex;align-items:center;justify-content:center;gap:40px;flex-wrap:wrap}
+  .stat{text-align:center}
+  .stat .stat-num{font-size:2.2rem;font-weight:800;color:#00b4d8;line-height:1}
+  .stat .stat-label{font-size:0.78rem;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px}
+
   /* MAP */
   .section-title{font-size:1.1rem;font-weight:700;color:#90caf9;margin-bottom:14px;display:flex;align-items:center;gap:8px}
   .map-container{position:relative;width:100%;padding-bottom:45%;background:#0d1b2a;border:1px solid #1a3a5c;border-radius:14px;margin-bottom:24px;overflow:hidden}
@@ -100,6 +106,12 @@
       <button id="nextWeek">Next ▶</button>
     </div>
     <div class="date-slider" id="dateSlider"></div>
+  </div>
+
+  <div class="stats-bar" id="statsBar">
+    <div class="stat"><div class="stat-num" id="statFlights">0</div><div class="stat-label">Flights</div></div>
+    <div class="stat"><div class="stat-num" id="statDests">0</div><div class="stat-label">Destinations</div></div>
+    <div class="stat"><div class="stat-num" id="statNoFlight">0</div><div class="stat-label">No Service</div></div>
   </div>
 
   <div class="section-title">🗺 Destination Map</div>
@@ -360,6 +372,9 @@ function renderGrid() {
     fetchWeather(dest);
   });
 
+  document.getElementById('statFlights').textContent = totalFlights;
+  document.getElementById('statDests').textContent = availableDests;
+  document.getElementById('statNoFlight').textContent = DESTINATIONS.length - availableDests;
   document.getElementById('flightsTitle').textContent =
     `✈ ${totalFlights} Flights to ${availableDests} Destinations`;
 }
