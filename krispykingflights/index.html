@@ -321,15 +321,14 @@ function updateMap() {
     marker.unbindTooltip();
     if (!isActive) {
       if (wasActive) {
-        // LOST service — flash red then fade out
+        // LOST service — flash red then vanish
         marker.setStyle({fillColor:'#ff1744', fillOpacity:1, radius:11, weight:2, color:'#ff1744'});
-        setTimeout(() => marker.setStyle({fillColor:'#ff1744', fillOpacity:0.5, radius:7, weight:1, color:'#ff1744'}), 300);
-        setTimeout(() => marker.setStyle({fillColor:'#455a64', fillOpacity:0.1, radius:3, weight:0.5, color:'#455a64'}), 700);
+        setTimeout(() => { map.removeLayer(marker); }, 600);
       } else {
-        marker.setStyle({fillColor:'#455a64', fillOpacity:0.1, radius:3, weight:0.5, color:'#455a64'});
+        if (map.hasLayer(marker)) map.removeLayer(marker);
       }
-      marker.bindTooltip(`${dest.name} — No flights`, {direction:'top', className:'map-tip'});
     } else {
+      if (!map.hasLayer(marker)) map.addLayer(marker);
       if (!wasActive) {
         // GAINED service — flash red then settle green
         marker.setStyle({fillColor:'#ff1744', fillOpacity:1, radius:12, weight:3, color:'#fff'});
@@ -348,20 +347,21 @@ function updateMap() {
     const wasActive = prevActiveSet.has(iata);
     const isActive = flights.length > 0;
 
-    if (!isActive && wasActive) {
-      // Lost — flash red then fade
-      line.setStyle({color:'#ff1744', opacity:0.8, weight:2.5});
-      setTimeout(() => line.setStyle({color:'#ff1744', opacity:0.3, weight:1.5}), 300);
-      setTimeout(() => line.setStyle({color:'#455a64', opacity:0.05, weight:0.5}), 700);
+    if (!isActive) {
+      if (wasActive) {
+        line.setStyle({color:'#ff1744', opacity:0.8, weight:2.5});
+        setTimeout(() => { map.removeLayer(line); }, 600);
+      } else {
+        if (map.hasLayer(line)) map.removeLayer(line);
+      }
     } else if (isActive && !wasActive) {
-      // Gained — flash red then settle blue
+      if (!map.hasLayer(line)) map.addLayer(line);
       line.setStyle({color:'#ff1744', opacity:0.9, weight:3});
       setTimeout(() => line.setStyle({color:'#ffab00', opacity:0.7, weight:2.5}), 400);
       setTimeout(() => line.setStyle({color:'#00b4d8', opacity:0.6, weight:2}), 900);
     } else if (isActive) {
+      if (!map.hasLayer(line)) map.addLayer(line);
       line.setStyle({color:'#00b4d8', opacity:0.6, weight:2});
-    } else {
-      line.setStyle({color:'#455a64', opacity:0.05, weight:0.5});
     }
   });
 
@@ -488,19 +488,18 @@ function renderGrid() {
     return a.flights[0].dep.localeCompare(b.flights[0].dep);
   });
 
-  destCards.forEach(({dest, flights}) => {
-    if (flights.length > 0) { totalFlights += flights.length; availableDests++; }
+  destCards.filter(d => d.flights.length > 0).forEach(({dest, flights}) => {
+    totalFlights += flights.length;
+    availableDests++;
     const card = document.createElement('div');
-    card.className = 'card' + (flights.length === 0 ? ' no-flight' : '');
+    card.className = 'card';
     card.innerHTML = `
       <div class="card-head">
         <span class="dest">${dest.name}</span>
         <span class="iata">${dest.iata}</span>
       </div>
       <div class="card-body">
-        ${flights.length === 0
-          ? '<div class="no-flight-msg">No flights on this day</div>'
-          : flights.map(f => {
+        ${flights.map(f => {
               const lh = calcLeaveHome(f.dep);
               return `
               <div class="flight-block">
