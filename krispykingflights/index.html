@@ -156,9 +156,52 @@
 
   footer{text-align:center;padding:20px;color:#455a64;font-size:0.78rem;border-top:1px solid #1a3a5c;margin-top:32px}
   @media(max-width:600px){
-    header h1{font-size:1.1rem}
-    .date-chip{padding:8px 10px;min-width:64px}
+    header{padding:14px 16px;flex-wrap:wrap;gap:8px}
+    header svg{width:30px;height:30px}
+    header h1{font-size:1rem;width:100%;order:-1}
+    header span{font-size:0.75rem;margin-left:0}
+    .live-indicator{font-size:0.68rem;margin-left:auto}
+    .container{padding:12px 8px}
+    .date-slider-wrap{padding:10px 12px}
+    .date-chip{padding:8px 8px;min-width:56px}
     .date-chip .day-num{font-size:1.1rem}
+    .date-chip .day-name{font-size:0.65rem}
+    .stats-bar{padding:12px 16px;gap:20px}
+    .stat .stat-num{font-size:1.6rem}
+    .stat .stat-label{font-size:0.68rem}
+    #map{height:280px;border-radius:10px}
+    .card{border-radius:10px}
+    .card-left{padding:12px 14px;min-width:auto;border-right:none;border-bottom:2px solid #1a3a5c}
+    .card-mid{padding:10px 12px}
+    .card-right{min-width:auto;padding:8px 12px;border-left:none;border-top:1px solid #1a3a5c}
+    .flight-row{flex-wrap:wrap;gap:6px;font-size:0.82rem}
+    .flight-row .fn{min-width:auto}
+    .lh-flight-dur{order:3;width:100%}
+    .lh-dur-bar{max-width:120px}
+    .leave-home-row{font-size:0.68rem;gap:4px;padding:4px 8px}
+    .lh-step .lh-l{font-size:0.58rem}
+    .lh-sep{font-size:0.6rem}
+    .travel-section{padding:10px 12px;grid-template-columns:1fr;gap:10px}
+    .wx-forecast{gap:3px}
+    .wx-day{min-width:46px;padding:3px 4px}
+    .wx-day .wx-emoji{font-size:1.3rem}
+    .wx-day .wx-d{font-size:0.55rem}
+    .wx-day .wx-t{font-size:0.65rem}
+    .wx-selected-day{flex-wrap:wrap;gap:6px;padding:6px}
+    .wx-sel-temp{font-size:0.95rem}
+    .return-panel{padding:14px 16px;border-radius:10px}
+    .return-row{flex-wrap:wrap;gap:6px;font-size:0.8rem}
+    .return-row .fn{min-width:auto}
+    .live-badge{font-size:0.55rem;padding:1px 4px}
+    .wx-rank-list{gap:4px}
+    .wx-rank-item{padding:2px 6px;font-size:0.68rem}
+  }
+  @media(max-width:380px){
+    header h1{font-size:0.9rem}
+    .card-left .dest{font-size:1rem}
+    .flight-row{font-size:0.75rem}
+    .leave-home-row{font-size:0.62rem;gap:3px}
+    .wx-day{min-width:40px}
   }
 </style>
 </head>
