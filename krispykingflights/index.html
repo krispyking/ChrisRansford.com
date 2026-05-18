@@ -4,6 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>KrispyKing ✈ Cathay Travel Planner</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Segoe UI',sans-serif;background:#0a0f1e;color:#e8eaf6;min-height:100vh}
@@ -41,13 +43,9 @@
 
   /* MAP */
   .section-title{font-size:1.1rem;font-weight:700;color:#90caf9;margin-bottom:14px;display:flex;align-items:center;gap:8px}
-  .map-container{position:relative;width:100%;padding-bottom:45%;background:#0d1b2a;border:1px solid #1a3a5c;border-radius:14px;margin-bottom:24px;overflow:hidden}
-  .map-svg{position:absolute;top:0;left:0;width:100%;height:100%}
-  .map-dot{cursor:pointer;transition:all 0.2s}
-  .map-dot:hover .dot-circle{r:7;fill-opacity:1}
-  .map-label{font-size:9px;fill:#90caf9;pointer-events:none;font-weight:600;font-family:'Segoe UI',sans-serif}
-  .map-line{stroke:#00b4d8;stroke-width:0.5;stroke-dasharray:4,3;opacity:0.3}
-  .map-tooltip{position:absolute;background:#162032;border:1px solid #00b4d8;border-radius:8px;padding:8px 12px;color:#fff;font-size:0.82rem;pointer-events:none;display:none;z-index:10;white-space:nowrap}
+  #map{width:100%;height:420px;border-radius:14px;border:1px solid #1a3a5c;margin-bottom:24px;z-index:1}
+  .map-tip{background:#162032!important;border:1px solid #00b4d8!important;color:#fff!important;font-size:0.82rem!important;font-weight:600!important;border-radius:6px!important;box-shadow:none!important}
+  .map-tip::before{border-top-color:#00b4d8!important}
 
   /* CARDS */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
@@ -115,10 +113,7 @@
   </div>
 
   <div class="section-title">🗺 Destination Map</div>
-  <div class="map-container" id="mapContainer">
-    <svg class="map-svg" id="mapSvg" viewBox="0 0 800 360"></svg>
-    <div class="map-tooltip" id="mapTooltip"></div>
-  </div>
+  <div id="map"></div>
 
   <div class="section-title" id="flightsTitle">✈ Available Flights</div>
   <div class="grid" id="flightGrid"></div>
@@ -259,63 +254,48 @@ function onDateChange() {
   document.getElementById('returnPanel').style.display = 'none';
 }
 
-// ===================== MAP (SVG) =====================
-function lngToX(lng) { return ((lng - 80) / 55) * 750 + 25; }
-function latToY(lat) { return ((35 - lat) / 50) * 340 + 10; }
+// ===================== MAP (Leaflet) =====================
+let map, routeLines = [], destMarkers = [];
 
 function drawMap() {
-  const svg = document.getElementById('mapSvg');
-  const hx = lngToX(HKG.lng), hy = latToY(HKG.lat);
-  let html = `
-    <defs>
-      <radialGradient id="seaGrad"><stop offset="0%" stop-color="#112240"/><stop offset="100%" stop-color="#0a1628"/></radialGradient>
-    </defs>
-    <rect width="800" height="360" fill="url(#seaGrad)"/>`;
+  map = L.map('map', {zoomControl:true, scrollWheelZoom:true}).setView([18, 105], 4);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:18
+  }).addTo(map);
+
+  L.circleMarker([HKG.lat, HKG.lng], {radius:10, color:'#fff', weight:2, fillColor:'#00b4d8', fillOpacity:1})
+    .addTo(map).bindTooltip('Hong Kong (HKG)', {permanent:true, direction:'top', className:'map-tip'});
 
   DESTINATIONS.forEach(dest => {
-    const dx = lngToX(dest.lng), dy = latToY(dest.lat);
-    html += `<line x1="${hx}" y1="${hy}" x2="${dx}" y2="${dy}" class="map-line"/>`;
-  });
+    const line = L.polyline([[HKG.lat, HKG.lng],[dest.lat, dest.lng]], {
+      color:'#00b4d8', weight:1.5, dashArray:'6,4', opacity:0.4
+    }).addTo(map);
+    routeLines.push({line, iata:dest.iata});
 
-  html += `<circle cx="${hx}" cy="${hy}" r="8" fill="#00b4d8" stroke="#fff" stroke-width="2"/>`;
-  html += `<text x="${hx}" y="${hy-12}" text-anchor="middle" class="map-label" style="font-size:11px;fill:#00b4d8;font-weight:700">HKG</text>`;
-
-  DESTINATIONS.forEach(dest => {
-    const dx = lngToX(dest.lng), dy = latToY(dest.lat);
-    html += `
-      <g class="map-dot" data-iata="${dest.iata}">
-        <circle class="dot-circle" cx="${dx}" cy="${dy}" r="5" fill="#ff6b35" fill-opacity="0.9" stroke="#fff" stroke-width="1.5"/>
-        <text x="${dx}" y="${dy-9}" text-anchor="middle" class="map-label">${dest.iata}</text>
-      </g>`;
-  });
-
-  svg.innerHTML = html;
-
-  svg.querySelectorAll('.map-dot').forEach(dot => {
-    dot.addEventListener('click', () => {
-      const iata = dot.getAttribute('data-iata');
-      const dest = DESTINATIONS.find(d => d.iata === iata);
-      if (dest) showReturn(dest);
-    });
+    const marker = L.circleMarker([dest.lat, dest.lng], {
+      radius:7, color:'#fff', weight:1.5, fillColor:'#ff6b35', fillOpacity:0.9
+    }).addTo(map);
+    marker.bindTooltip(`${dest.name} (${dest.iata})`, {direction:'top', className:'map-tip'});
+    marker.on('click', () => showReturn(dest));
+    destMarkers.push({marker, iata:dest.iata});
   });
 }
 
 function updateMap() {
   const dow = getSelectedDOW();
-  document.querySelectorAll('.map-dot').forEach(dot => {
-    const iata = dot.getAttribute('data-iata');
+  destMarkers.forEach(({marker, iata}) => {
     const dest = DESTINATIONS.find(d => d.iata === iata);
     const flights = flightsForDay(dest.outbound, dow);
-    const circle = dot.querySelector('.dot-circle');
     if (flights.length === 0) {
-      circle.setAttribute('fill', '#455a64');
-      circle.setAttribute('fill-opacity', '0.4');
-      circle.setAttribute('r', '3');
+      marker.setStyle({fillColor:'#455a64', fillOpacity:0.3, radius:4});
     } else {
-      circle.setAttribute('fill', '#ff6b35');
-      circle.setAttribute('fill-opacity', '0.9');
-      circle.setAttribute('r', '5');
+      marker.setStyle({fillColor:'#ff6b35', fillOpacity:0.9, radius:7});
     }
+  });
+  routeLines.forEach(({line, iata}) => {
+    const dest = DESTINATIONS.find(d => d.iata === iata);
+    const flights = flightsForDay(dest.outbound, dow);
+    line.setStyle({opacity: flights.length === 0 ? 0.1 : 0.4});
   });
 }
 
