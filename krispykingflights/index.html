@@ -268,6 +268,7 @@ function onDateChange() {
 
 // ===================== MAP (Leaflet) =====================
 let map, routeLines = [], destMarkers = [];
+let prevActiveSet = new Set();
 
 function drawMap() {
   map = L.map('map', {zoomControl:true, scrollWheelZoom:true}).setView([18, 105], 4);
@@ -295,29 +296,65 @@ function drawMap() {
 
 function updateMap() {
   const dow = getSelectedDOW();
+  const newActiveSet = new Set();
+  DESTINATIONS.forEach(dest => {
+    if (flightsForDay(dest.outbound, dow).length > 0) newActiveSet.add(dest.iata);
+  });
+
   destMarkers.forEach(({marker, iata}) => {
     const dest = DESTINATIONS.find(d => d.iata === iata);
     const flights = flightsForDay(dest.outbound, dow);
-    if (flights.length === 0) {
-      marker.setStyle({fillColor:'#455a64', fillOpacity:0.1, radius:3, weight:0.5, color:'#455a64'});
-      marker.closeTooltip();
-      marker.unbindTooltip();
+    const wasActive = prevActiveSet.has(iata);
+    const isActive = flights.length > 0;
+
+    marker.unbindTooltip();
+    if (!isActive) {
+      if (wasActive) {
+        // LOST service — flash red then fade out
+        marker.setStyle({fillColor:'#ff1744', fillOpacity:1, radius:11, weight:2, color:'#ff1744'});
+        setTimeout(() => marker.setStyle({fillColor:'#ff1744', fillOpacity:0.5, radius:7, weight:1, color:'#ff1744'}), 300);
+        setTimeout(() => marker.setStyle({fillColor:'#455a64', fillOpacity:0.1, radius:3, weight:0.5, color:'#455a64'}), 700);
+      } else {
+        marker.setStyle({fillColor:'#455a64', fillOpacity:0.1, radius:3, weight:0.5, color:'#455a64'});
+      }
       marker.bindTooltip(`${dest.name} — No flights`, {direction:'top', className:'map-tip'});
     } else {
-      marker.setStyle({fillColor:'#00e676', fillOpacity:1, radius:9, weight:2, color:'#fff'});
-      marker.unbindTooltip();
+      if (!wasActive) {
+        // GAINED service — flash red then settle green
+        marker.setStyle({fillColor:'#ff1744', fillOpacity:1, radius:12, weight:3, color:'#fff'});
+        setTimeout(() => marker.setStyle({fillColor:'#ffab00', fillOpacity:1, radius:10, weight:2, color:'#fff'}), 400);
+        setTimeout(() => marker.setStyle({fillColor:'#00e676', fillOpacity:1, radius:9, weight:2, color:'#fff'}), 900);
+      } else {
+        marker.setStyle({fillColor:'#00e676', fillOpacity:1, radius:9, weight:2, color:'#fff'});
+      }
       marker.bindTooltip(`${dest.name} (${dest.iata}) — ${flights.length} flight${flights.length>1?'s':''}`, {direction:'top', className:'map-tip'});
     }
   });
+
   routeLines.forEach(({line, iata}) => {
     const dest = DESTINATIONS.find(d => d.iata === iata);
     const flights = flightsForDay(dest.outbound, dow);
-    line.setStyle({
-      opacity: flights.length === 0 ? 0.05 : 0.6,
-      weight: flights.length === 0 ? 0.5 : 2,
-      color: flights.length === 0 ? '#455a64' : '#00b4d8'
-    });
+    const wasActive = prevActiveSet.has(iata);
+    const isActive = flights.length > 0;
+
+    if (!isActive && wasActive) {
+      // Lost — flash red then fade
+      line.setStyle({color:'#ff1744', opacity:0.8, weight:2.5});
+      setTimeout(() => line.setStyle({color:'#ff1744', opacity:0.3, weight:1.5}), 300);
+      setTimeout(() => line.setStyle({color:'#455a64', opacity:0.05, weight:0.5}), 700);
+    } else if (isActive && !wasActive) {
+      // Gained — flash red then settle blue
+      line.setStyle({color:'#ff1744', opacity:0.9, weight:3});
+      setTimeout(() => line.setStyle({color:'#ffab00', opacity:0.7, weight:2.5}), 400);
+      setTimeout(() => line.setStyle({color:'#00b4d8', opacity:0.6, weight:2}), 900);
+    } else if (isActive) {
+      line.setStyle({color:'#00b4d8', opacity:0.6, weight:2});
+    } else {
+      line.setStyle({color:'#455a64', opacity:0.05, weight:0.5});
+    }
   });
+
+  prevActiveSet = newActiveSet;
 }
 
 // ===================== FLIGHT LOGIC =====================
@@ -505,6 +542,9 @@ document.addEventListener('DOMContentLoaded', () => {
   updateDateDisplay();
   renderGrid();
   drawMap();
+  // Seed prevActiveSet so first render doesn't animate everything
+  const initDow = getSelectedDOW();
+  DESTINATIONS.forEach(d => { if (flightsForDay(d.outbound, initDow).length > 0) prevActiveSet.add(d.iata); });
   updateMap();
 
   document.getElementById('prevWeek').addEventListener('click', () => {
