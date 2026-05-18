@@ -272,7 +272,45 @@ const DESTINATIONS = [
     inbound:[{fn:"CX929",dep:"17:10",arr:"20:00",days:[2,3,5,6,7]}],
     attractions:["🌃 Hongya Cave — stilted riverside night-lit complex","🚡 Yangtze River Cableway — cross-river gondola","🌶 Jiefangbei — pedestrian CBD + hotpot street"],
     itinerary:"D1: Jiefangbei + Hongya Cave at night + Yangtze cableway. D2: Dazu Rock Carvings UNESCO day trip. D3: Ciqikou Ancient Town + Eling Park skyline + hotpot dinner. D4: Three Gorges Museum + Chongqing Zoo + fly home.",
-    hotels:["JW Marriott Chongqing — Jiefangbei riverside 5-star","The Westin Chongqing — Jiefangbei central tower","Hyatt Regency Chongqing — modern luxury in Nan'an"]}
+    hotels:["JW Marriott Chongqing — Jiefangbei riverside 5-star","The Westin Chongqing — Jiefangbei central tower","Hyatt Regency Chongqing — modern luxury in Nan'an"]},
+
+  // ── EUROPE ──
+  {name:"London",iata:"LHR",country:"United Kingdom",lat:51.4700,lng:-0.4543,
+    outbound:[
+      {fn:"CX251",dep:"00:05",arr:"06:05",days:[1,2,3,4,5,6,7]},
+      {fn:"CX253",dep:"09:30",arr:"15:25",days:[1,2,3,4,5,6,7]},
+      {fn:"CX255",dep:"11:35",arr:"17:25",days:[1,2,3,4,5,6,7]},
+      {fn:"CX257",dep:"16:00",arr:"21:50",days:[1,2,3,4,5,6,7]},
+      {fn:"CX259",dep:"23:30",arr:"05:25+1",days:[1,2,3,4,5,6,7]}],
+    inbound:[
+      {fn:"CX250",dep:"12:25",arr:"07:05+1",days:[1,2,3,4,5,6,7]},
+      {fn:"CX252",dep:"17:05",arr:"11:55+1",days:[1,2,3,4,5,6,7]},
+      {fn:"CX254",dep:"18:20",arr:"13:15+1",days:[1,2,3,4,5,6,7]},
+      {fn:"CX256",dep:"20:10",arr:"15:05+1",days:[1,2,3,4,5,6,7]},
+      {fn:"CX258",dep:"22:20",arr:"17:10+1",days:[1,2,3,4,5,6,7]}],
+    attractions:["🏛 British Museum — world-class free museum with 8 million works","🎡 London Eye — Thames riverside panoramic wheel","👑 Tower of London — Crown Jewels + 1000 years of history"],
+    itinerary:"D1: Westminster — Big Ben + Parliament + Abbey + Buckingham Palace. D2: British Museum + Covent Garden + West End show. D3: Tower of London + Tower Bridge + Borough Market + South Bank. D4: Camden Market or Notting Hill + Harrods + fly home.",
+    hotels:["The Langham — classic luxury near Regent Street","Shangri-La at The Shard — panoramic Thames views","The Ned — stylish City of London landmark"]},
+
+  {name:"Paris",iata:"CDG",country:"France",lat:49.0097,lng:2.5479,
+    outbound:[
+      {fn:"CX261",dep:"00:15",arr:"06:50",days:[1,2,3,4,5,6,7]},
+      {fn:"CX263",dep:"11:45",arr:"18:20",days:[1,4,6]}],
+    inbound:[
+      {fn:"CX260",dep:"13:10",arr:"06:45+1",days:[1,2,3,4,5,6,7]},
+      {fn:"CX262",dep:"21:15",arr:"15:00+1",days:[1,4,6]}],
+    attractions:["🗼 Eiffel Tower — iconic iron lattice tower, river Seine views","🖼 The Louvre — world's largest art museum, Mona Lisa","⛪ Sacré-Cœur — hilltop basilica with Paris panorama"],
+    itinerary:"D1: Eiffel Tower + Seine river cruise + Trocadéro. D2: Louvre + Tuileries Garden + Champs-Élysées + Arc de Triomphe. D3: Montmartre + Sacré-Cœur + Marais district + Notre-Dame. D4: Versailles day trip or Musée d'Orsay + fly home.",
+    hotels:["Le Meurice — palatial Tuileries-view 5-star","Shangri-La Paris — Eiffel Tower views, former palace","Hotel Plaza Athénée — Dior flagship, Avenue Montaigne"]},
+
+  {name:"Zurich",iata:"ZRH",country:"Switzerland",lat:47.4647,lng:8.5492,
+    outbound:[
+      {fn:"CX383",dep:"01:00",arr:"07:15",days:[1,2,3,4,5,6,7]}],
+    inbound:[
+      {fn:"CX382",dep:"13:35",arr:"07:05+1",days:[1,2,3,4,5,6,7]}],
+    attractions:["🏔 Lake Zurich — boat cruises with Alpine backdrop","🏛 Old Town (Altstadt) — medieval lanes + Grossmünster church","🚂 Jungfraujoch day trip — Top of Europe railway at 3,454m"],
+    itinerary:"D1: Old Town walk — Grossmünster + Lindenhof + Bahnhofstrasse shopping. D2: Day trip to Jungfraujoch or Lucerne + Chapel Bridge. D3: Lake Zurich cruise + Kunsthaus art museum + fondue dinner. D4: Uetliberg mountain viewpoint + chocolate shop + fly home.",
+    hotels:["The Dolder Grand — hillside luxury with city and lake views","Baur au Lac — lakeside grande dame since 1844","Widder Hotel — boutique in medieval Old Town"]}
 ];
 
 const OWM_KEY = "712270799a8b7d594508656a8cdeeab7";
