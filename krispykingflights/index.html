@@ -279,7 +279,9 @@ function onDateChange() {
   updateDateDisplay();
   renderGrid();
   updateMap();
+  // Refresh weather overlays immediately AND after fade-out completes
   updateMapWeather();
+  setTimeout(() => updateMapWeather(), 1600);
   document.getElementById('returnPanel').style.display = 'none';
 }
 
@@ -328,19 +330,21 @@ function updateMap() {
     marker.unbindTooltip();
     if (!isActive) {
       if (wasActive) {
-        // LOST service — flash red then vanish
-        marker.setStyle({fillColor:'#ff1744', fillOpacity:1, radius:11, weight:2, color:'#ff1744'});
-        setTimeout(() => { map.removeLayer(marker); }, 600);
+        // LOST — flash red, shrink, then vanish after 1.5s
+        marker.setStyle({fillColor:'#ff1744', fillOpacity:1, radius:12, weight:2, color:'#ff1744'});
+        setTimeout(() => marker.setStyle({fillColor:'#ff1744', fillOpacity:0.6, radius:8, weight:1, color:'#ff1744'}), 500);
+        setTimeout(() => marker.setStyle({fillColor:'#ff1744', fillOpacity:0.2, radius:4, weight:0.5, color:'#ff1744'}), 1000);
+        setTimeout(() => { map.removeLayer(marker); }, 1500);
       } else {
         if (map.hasLayer(marker)) map.removeLayer(marker);
       }
     } else {
       if (!map.hasLayer(marker)) map.addLayer(marker);
       if (!wasActive) {
-        // GAINED service — flash red then settle green
-        marker.setStyle({fillColor:'#ff1744', fillOpacity:1, radius:12, weight:3, color:'#fff'});
-        setTimeout(() => marker.setStyle({fillColor:'#ffab00', fillOpacity:1, radius:10, weight:2, color:'#fff'}), 400);
-        setTimeout(() => marker.setStyle({fillColor:'#00e676', fillOpacity:1, radius:9, weight:2, color:'#fff'}), 900);
+        // GAINED — appear small, grow to green over 1.5s
+        marker.setStyle({fillColor:'#00e676', fillOpacity:0.3, radius:3, weight:1, color:'#fff'});
+        setTimeout(() => marker.setStyle({fillColor:'#00e676', fillOpacity:0.6, radius:6, weight:1.5, color:'#fff'}), 500);
+        setTimeout(() => marker.setStyle({fillColor:'#00e676', fillOpacity:1, radius:9, weight:2, color:'#fff'}), 1000);
       } else {
         marker.setStyle({fillColor:'#00e676', fillOpacity:1, radius:9, weight:2, color:'#fff'});
       }
@@ -356,16 +360,20 @@ function updateMap() {
 
     if (!isActive) {
       if (wasActive) {
-        line.setStyle({color:'#ff1744', opacity:0.8, weight:2.5});
-        setTimeout(() => { map.removeLayer(line); }, 600);
+        // Fade out over 1.5s
+        line.setStyle({color:'#ff1744', opacity:0.7, weight:2.5});
+        setTimeout(() => line.setStyle({color:'#ff1744', opacity:0.3, weight:1.5}), 500);
+        setTimeout(() => line.setStyle({color:'#ff1744', opacity:0.1, weight:0.5}), 1000);
+        setTimeout(() => { map.removeLayer(line); }, 1500);
       } else {
         if (map.hasLayer(line)) map.removeLayer(line);
       }
     } else if (isActive && !wasActive) {
+      // Fade in over 1.5s
       if (!map.hasLayer(line)) map.addLayer(line);
-      line.setStyle({color:'#ff1744', opacity:0.9, weight:3});
-      setTimeout(() => line.setStyle({color:'#ffab00', opacity:0.7, weight:2.5}), 400);
-      setTimeout(() => line.setStyle({color:'#00b4d8', opacity:0.6, weight:2}), 900);
+      line.setStyle({color:'#00b4d8', opacity:0.1, weight:0.5});
+      setTimeout(() => line.setStyle({color:'#00b4d8', opacity:0.3, weight:1.5}), 500);
+      setTimeout(() => line.setStyle({color:'#00b4d8', opacity:0.6, weight:2}), 1000);
     } else if (isActive) {
       if (!map.hasLayer(line)) map.addLayer(line);
       line.setStyle({color:'#00b4d8', opacity:0.6, weight:2});
