@@ -52,6 +52,7 @@
   .grid{display:flex;flex-direction:column;gap:12px}
   .card{background:#0d1b2a;border:1px solid #1a3a5c;border-radius:14px;overflow:hidden;transition:transform 0.2s,border-color 0.2s;cursor:pointer}
   .card:hover,.card.active{transform:translateX(4px);border-color:#00b4d8}
+  .card.pick-highlight{border-color:#00e676;box-shadow:0 0 12px rgba(0,230,118,0.3)}
   .card-inner{display:flex;align-items:stretch}
   .card-left{background:linear-gradient(135deg,#00264d,#003366);padding:16px 20px;min-width:180px;display:flex;flex-direction:column;justify-content:center;gap:4px;border-right:2px solid #1a3a5c}
   .card-left .dest{font-size:1.15rem;font-weight:700;color:#fff}
@@ -151,6 +152,12 @@
     <div class="stat"><div class="stat-num" id="statFlights">0</div><div class="stat-label">Flights</div></div>
     <div class="stat"><div class="stat-num" id="statDests">0</div><div class="stat-label">Destinations</div></div>
     <div class="stat"><div class="stat-num" id="statNoFlight">0</div><div class="stat-label">No Service</div></div>
+  </div>
+
+  <div id="weatherPick" style="background:linear-gradient(135deg,#003322,#00443a);border:1px solid #00b4d8;border-radius:12px;padding:14px 20px;margin-bottom:16px;display:none;cursor:pointer" onclick="document.querySelector('.card.pick-highlight')?.scrollIntoView({behavior:'smooth',block:'center'})">
+    <div style="font-size:0.72rem;color:#90caf9;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">☀️ Best Weather Pick</div>
+    <div id="weatherPickBody" style="font-size:1.05rem;color:#fff;font-weight:700"></div>
+    <div id="weatherPickSub" style="font-size:0.82rem;color:#80cbc4;margin-top:4px"></div>
   </div>
 
   <div class="section-title">🗺 Destination Map</div>
@@ -355,6 +362,7 @@ function onDateChange() {
   // Refresh weather overlays immediately AND after fade-out completes
   updateMapWeather();
   setTimeout(() => updateMapWeather(), 1600);
+  updateWeatherPick();
   document.getElementById('returnPanel').style.display = 'none';
 }
 
@@ -591,7 +599,7 @@ function renderGrid() {
     totalFlights += flights.length;
     availableDests++;
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card'; card.setAttribute('data-iata', dest.iata);
     card.innerHTML = `
       <div class="card-inner">
         <div class="card-left">
@@ -644,6 +652,37 @@ function renderGrid() {
 }
 
 // ===================== WEATHER (5-day forecast) =====================
+function updateWeatherPick() {
+  const dateKey = getSelectedDateKey();
+  const dow = selectedDate.getDay() || 7;
+  let best = null, bestScore = -Infinity;
+  DESTINATIONS.forEach(dest => {
+    if (!dest.outbound.some(f => f.days.includes(dow))) return;
+    const data = weatherCache[dest.iata];
+    if (!data) return;
+    const items = getWeatherForDate(data, dateKey);
+    if (items.length === 0) return;
+    const wx = classifyWeather(items);
+    if (wx.severe) return;
+    let score = wx.hi;
+    if (!wx.hasRain && wx.emoji === '☀️') score += 15;
+    else if (!wx.hasRain) score += 5;
+    else score -= 10;
+    if (score > bestScore) { bestScore = score; best = {dest, wx}; }
+  });
+  const box = document.getElementById('weatherPick');
+  if (!best) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const f = best.dest.outbound.find(f => f.days.includes(dow));
+  document.getElementById('weatherPickBody').textContent =
+    `${best.wx.emoji} Fly to ${best.dest.name} (${best.dest.iata}) — ${best.wx.hi}°C, ${best.wx.desc}`;
+  const lh = calcLeaveHome(f.dep);
+  document.getElementById('weatherPickSub').textContent =
+    `${f.fn} departing ${f.dep} · Leave home ${lh.leaveHome} · ${best.dest.attractions?.[0] || ''}`;
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('pick-highlight'));
+  document.querySelector(`[data-iata="${best.dest.iata}"]`)?.classList.add('pick-highlight');
+}
+
 async function fetchWeather(dest) {
   const el = document.getElementById(`wx-${dest.iata}`);
   if (!el) return;
@@ -655,6 +694,7 @@ async function fetchWeather(dest) {
     weatherCache[dest.iata] = data;
     renderForecast(el, data);
     updateMapWeather();
+    updateWeatherPick();
   } catch(e) {
     el.innerHTML = '<span class="wx-loading">Weather unavailable</span>';
   }
